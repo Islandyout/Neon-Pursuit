@@ -12,6 +12,8 @@ const driveButton = getElement<HTMLButtonElement>('drive-button');
 const startCard = getElement<HTMLElement>('start-card');
 const installButton = getElement<HTMLButtonElement>('install-button');
 const controlModeButton = getElement<HTMLButtonElement>('control-mode-button');
+const vehicleButton = getElement<HTMLButtonElement>('vehicle-button');
+const vehicleLabel = getElement<HTMLElement>('vehicle-label');
 const offlineBadge = getElement<HTMLElement>('offline-badge');
 const coarsePointer = window.matchMedia('(pointer: coarse)');
 const portrait = window.matchMedia('(orientation: portrait)');
@@ -55,6 +57,11 @@ controlModeButton.addEventListener('click', async () => {
   } catch (error) {
     console.warn('Could not change mobile steering mode.', error);
   }
+});
+
+vehicleButton.addEventListener('click', () => {
+  const name = game.cycleVehicle();
+  if (name) vehicleLabel.textContent = name.toUpperCase();
 });
 
 driveButton.addEventListener('click', async () => {
