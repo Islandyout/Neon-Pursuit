@@ -1,12 +1,11 @@
 import { Vector3 } from '@babylonjs/core/Maths/math';
-import type { Mesh } from '@babylonjs/core/Meshes/mesh';
-import type { Scene } from '@babylonjs/core/scene';
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { QualityTier, RoadEdge, RoadPoint, VehicleClass } from './contracts';
 import { ROAD_GRAPH, getConnectedEdges } from './RoadNetwork';
-import { createVehicleVisual } from './VehicleVisualFactory';
+import { ModelLibrary, modelForVehicleClass } from './ModelLibrary';
 
 interface TrafficAgent {
-  mesh: Mesh;
+  mesh: TransformNode;
   road: RoadEdge;
   distance: number;
   speed: number;
@@ -14,13 +13,12 @@ interface TrafficAgent {
   laneOffset: number;
 }
 
-const COLORS = ['#7b7f83', '#b5b2a8', '#4e5960', '#61565a', '#a2a6a0', '#363a3e'];
 const TRAFFIC_CLASSES: VehicleClass[] = ['traffic-sedan', 'traffic-sedan', 'traffic-van', 'utility-truck'];
 
 export class TrafficSystem {
   private readonly agents: TrafficAgent[] = [];
 
-  constructor(private readonly scene: Scene, qualityTier: QualityTier) {
+  constructor(private readonly models: ModelLibrary, qualityTier: QualityTier) {
     const budget = qualityTier === 'desktop' ? 22 : qualityTier === 'mobile-high' ? 14 : 8;
     const roads = ROAD_GRAPH.edges.filter((road) => !road.shortcut && road.trafficDensity !== 0 && road.roadClass !== 'parking');
     for (let index = 0; index < budget; index += 1) {
@@ -56,36 +54,34 @@ export class TrafficSystem {
       const avoid = playerDistance < 20 ? Math.sign(agent.laneOffset || (agent.seed % 2 === 0 ? 1 : -1)) * 0.75 : 0;
       agent.mesh.position.set(
         sample.position.x + rightX * (agent.laneOffset + avoid),
-        agent.road.roadClass === 'expressway' ? 4.55 : 0.05,
+        agent.road.roadClass === 'expressway' ? 4.45 : 0.06,
         sample.position.z + rightZ * (agent.laneOffset + avoid)
       );
-      agent.mesh.rotation.y = sample.yaw;
+      agent.mesh.rotation.y = sample.yaw + Math.PI;
       agent.mesh.setEnabled(playerDistance < 700);
     }
   }
 
   dispose(): void {
-    for (const agent of this.agents) agent.mesh.dispose(false, true);
+    for (const agent of this.agents) agent.mesh.dispose(false);
     this.agents.length = 0;
   }
 
   private createAgent(road: RoadEdge, seed: number, distance: number): TrafficAgent {
     const vehicleClass = TRAFFIC_CLASSES[seed % TRAFFIC_CLASSES.length];
-    const mesh = createVehicleVisual(this.scene, {
-      name: `traffic-${seed}`,
-      vehicleClass,
-      paint: COLORS[seed % COLORS.length]
-    });
+    const mesh = this.models.instantiate(modelForVehicleClass(vehicleClass), `traffic-${seed}`);
+    const scale = vehicleClass === 'utility-truck' ? 1.72 : vehicleClass === 'traffic-van' ? 1.64 : 1.58;
+    mesh.scaling.setAll(scale);
     const laneOffset = computeLaneOffset(road, seed);
     const sample = sampleEdge(road, distance);
     const rightX = Math.cos(sample.yaw);
     const rightZ = -Math.sin(sample.yaw);
     mesh.position.set(
       sample.position.x + rightX * laneOffset,
-      road.roadClass === 'expressway' ? 4.55 : 0.05,
+      road.roadClass === 'expressway' ? 4.45 : 0.06,
       sample.position.z + rightZ * laneOffset
     );
-    mesh.rotation.y = sample.yaw;
+    mesh.rotation.y = sample.yaw + Math.PI;
     return { mesh, road, distance, speed: 8 + (seed % 9), seed, laneOffset };
   }
 }
