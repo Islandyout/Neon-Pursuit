@@ -22,8 +22,17 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Fetch pinned production art assets
+        run: npm run assets:fetch
+
+      - name: Verify required GLB production assets
+        run: npm run assets:verify
+
       - name: Studio smoke checks
         run: npm run smoke
+
+      - name: System simulations
+        run: npm run system-check
 
       - name: Typecheck and build
         run: npm run build
