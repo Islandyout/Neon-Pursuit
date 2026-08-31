@@ -2,11 +2,30 @@ import type { ControlMode, VehicleInput } from './contracts';
 
 export type Control = 'throttle' | 'brake' | 'left' | 'right' | 'handbrake' | 'nitro';
 
+export interface ControlSettings {
+  steeringSensitivity: number;
+  gyroSensitivity: number;
+  steeringAssist: boolean;
+  leftHanded: boolean;
+  controlOpacity: number;
+  vibration: boolean;
+}
+
+const DEFAULT_SETTINGS: ControlSettings = {
+  steeringSensitivity: 1,
+  gyroSensitivity: 1,
+  steeringAssist: true,
+  leftHanded: false,
+  controlOpacity: 0.78,
+  vibration: true
+};
+
 export class InputManager {
   private readonly keys = new Set<string>();
   private readonly touch = new Set<Control>();
   private readonly touchStarted = new Map<Control, number>();
   private controlMode: ControlMode = this.readSavedControlMode();
+  private settings: ControlSettings = this.readSavedSettings();
   private analogSteer = 0;
   private gyroSteer = 0;
   private steeringPointer: number | null = null;
@@ -21,6 +40,7 @@ export class InputManager {
     this.bindTouchControls();
     this.bindAnalogSteering();
     this.syncControlModeClass();
+    this.applySettingsToUi();
   }
 
   read(): VehicleInput {
@@ -38,11 +58,15 @@ export class InputManager {
     const keyboardSteer = (this.has('KeyD', 'ArrowRight') ? 1 : 0) - (this.has('KeyA', 'ArrowLeft') ? 1 : 0);
     const touchSteer = this.controlMode === 'analog' ? this.analogSteer : this.controlMode === 'gyro' ? this.gyroSteer : tapRight - tapLeft;
     const digitalSteer = Math.abs(touchSteer) > Math.abs(keyboardSteer) ? touchSteer : keyboardSteer;
+    const rawSteer = Math.abs(padSteer) > Math.abs(digitalSteer) ? padSteer : digitalSteer;
+    const sensitivity = Math.max(0.55, Math.min(1.55, this.settings.steeringSensitivity));
+    const assisted = this.settings.steeringAssist ? Math.sign(rawSteer) * Math.pow(Math.abs(rawSteer), 1.18) : rawSteer;
+    const steer = Math.max(-1, Math.min(1, assisted * sensitivity));
 
     return {
       throttle: Math.max(keyboardThrottle, touchThrottle, padThrottle),
       brake: Math.max(keyboardBrake, touchBrake, padBrake),
-      steer: Math.abs(padSteer) > Math.abs(digitalSteer) ? padSteer : digitalSteer,
+      steer,
       handbrake: this.keys.has('Space') || this.touch.has('handbrake') || Boolean(pad?.buttons[2]?.pressed),
       nitro: this.has('ShiftLeft', 'ShiftRight') || this.touch.has('nitro') || Boolean(pad?.buttons[5]?.pressed)
     };
@@ -50,6 +74,23 @@ export class InputManager {
 
   getControlMode(): ControlMode {
     return this.controlMode;
+  }
+
+  getSettings(): ControlSettings {
+    return { ...this.settings };
+  }
+
+  updateSettings(next: Partial<ControlSettings>): ControlSettings {
+    this.settings = {
+      ...this.settings,
+      ...next,
+      steeringSensitivity: Math.max(0.55, Math.min(1.55, next.steeringSensitivity ?? this.settings.steeringSensitivity)),
+      gyroSensitivity: Math.max(0.5, Math.min(1.8, next.gyroSensitivity ?? this.settings.gyroSensitivity)),
+      controlOpacity: Math.max(0.35, Math.min(1, next.controlOpacity ?? this.settings.controlOpacity))
+    };
+    localStorage.setItem('np-control-settings', JSON.stringify(this.settings));
+    this.applySettingsToUi();
+    return this.getSettings();
   }
 
   async cycleControlMode(): Promise<ControlMode> {
@@ -84,6 +125,16 @@ export class InputManager {
     return value === 'tap' || value === 'gyro' || value === 'analog' ? value : 'analog';
   }
 
+  private readSavedSettings(): ControlSettings {
+    try {
+      const raw = localStorage.getItem('np-control-settings');
+      if (!raw) return { ...DEFAULT_SETTINGS };
+      return { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<ControlSettings>) };
+    } catch {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
   private has(...codes: string[]): boolean {
     return codes.some((code) => this.keys.has(code));
   }
@@ -111,7 +162,8 @@ export class InputManager {
     if (this.controlMode !== 'gyro' || event.gamma === null) return;
     const deadZone = 2.5;
     const gamma = Math.abs(event.gamma) < deadZone ? 0 : event.gamma;
-    this.gyroSteer = Math.max(-1, Math.min(1, gamma / 26));
+    const sensitivity = Math.max(0.5, Math.min(1.8, this.settings.gyroSensitivity));
+    this.gyroSteer = Math.max(-1, Math.min(1, (gamma / 26) * sensitivity));
   };
 
   private readonly reset = (): void => {
@@ -167,7 +219,7 @@ export class InputManager {
         this.touch.add(control);
         this.touchStarted.set(control, performance.now());
         button.classList.add('pressed');
-        if ((control === 'nitro' || control === 'handbrake') && 'vibrate' in navigator) navigator.vibrate(12);
+        if (this.settings.vibration && (control === 'nitro' || control === 'handbrake') && 'vibrate' in navigator) navigator.vibrate(12);
       };
       const deactivate = (event: PointerEvent): void => {
         event.preventDefault();
@@ -188,5 +240,10 @@ export class InputManager {
     const label = document.getElementById('control-mode-label');
     if (label) label.textContent = this.controlMode.toUpperCase();
     if (this.steeringPad) this.steeringPad.setAttribute('aria-hidden', String(this.controlMode !== 'analog'));
+  }
+
+  private applySettingsToUi(): void {
+    document.documentElement.dataset.leftHanded = String(this.settings.leftHanded);
+    document.documentElement.style.setProperty('--control-opacity', this.settings.controlOpacity.toFixed(2));
   }
 }
