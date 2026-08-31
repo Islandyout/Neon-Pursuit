@@ -16,6 +16,18 @@ const vehicleButton = getElement<HTMLButtonElement>('vehicle-button');
 const vehicleLabel = getElement<HTMLElement>('vehicle-label');
 const styleButton = getElement<HTMLButtonElement>('style-button');
 const styleLabel = getElement<HTMLElement>('style-label');
+const tuneButton = getElement<HTMLButtonElement>('tune-button');
+const settingsPanel = getElement<HTMLElement>('control-settings');
+const closeSettings = getElement<HTMLButtonElement>('close-settings');
+const steeringSensitivity = getElement<HTMLInputElement>('steer-sensitivity');
+const steeringSensitivityValue = getElement<HTMLOutputElement>('steer-sensitivity-value');
+const gyroSensitivity = getElement<HTMLInputElement>('gyro-sensitivity');
+const gyroSensitivityValue = getElement<HTMLOutputElement>('gyro-sensitivity-value');
+const controlOpacity = getElement<HTMLInputElement>('control-opacity');
+const controlOpacityValue = getElement<HTMLOutputElement>('control-opacity-value');
+const steeringAssist = getElement<HTMLInputElement>('steering-assist');
+const leftHanded = getElement<HTMLInputElement>('left-handed');
+const vibration = getElement<HTMLInputElement>('vibration');
 const offlineBadge = getElement<HTMLElement>('offline-badge');
 const coarsePointer = window.matchMedia('(pointer: coarse)');
 const portrait = window.matchMedia('(orientation: portrait)');
@@ -72,6 +84,43 @@ styleButton.addEventListener('click', () => {
   if (label) styleLabel.textContent = label.replace('STYLE ', '');
 });
 
+tuneButton.addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
+closeSettings.addEventListener('click', () => settingsPanel.classList.add('hidden'));
+
+const syncSettingsUi = (): void => {
+  const settings = game.getControlSettings();
+  if (!settings) return;
+  steeringSensitivity.value = String(settings.steeringSensitivity);
+  steeringSensitivityValue.value = settings.steeringSensitivity.toFixed(2);
+  gyroSensitivity.value = String(settings.gyroSensitivity);
+  gyroSensitivityValue.value = settings.gyroSensitivity.toFixed(2);
+  controlOpacity.value = String(settings.controlOpacity);
+  controlOpacityValue.value = `${Math.round(settings.controlOpacity * 100)}%`;
+  steeringAssist.checked = settings.steeringAssist;
+  leftHanded.checked = settings.leftHanded;
+  vibration.checked = settings.vibration;
+};
+
+const applyControlSettings = (): void => {
+  const updated = game.updateControlSettings({
+    steeringSensitivity: Number(steeringSensitivity.value),
+    gyroSensitivity: Number(gyroSensitivity.value),
+    controlOpacity: Number(controlOpacity.value),
+    steeringAssist: steeringAssist.checked,
+    leftHanded: leftHanded.checked,
+    vibration: vibration.checked
+  });
+  if (!updated) return;
+  steeringSensitivityValue.value = updated.steeringSensitivity.toFixed(2);
+  gyroSensitivityValue.value = updated.gyroSensitivity.toFixed(2);
+  controlOpacityValue.value = `${Math.round(updated.controlOpacity * 100)}%`;
+};
+
+for (const control of [steeringSensitivity, gyroSensitivity, controlOpacity, steeringAssist, leftHanded, vibration]) {
+  control.addEventListener('input', applyControlSettings);
+  control.addEventListener('change', applyControlSettings);
+}
+
 driveButton.addEventListener('click', async () => {
   gameStarted = true;
   startCard.classList.add('dismissed');
@@ -106,6 +155,7 @@ registerSW({
 void game.initialize().then(() => {
   const name = game.getVehicleName();
   if (name) vehicleLabel.textContent = name.toUpperCase();
+  syncSettingsUi();
   syncPlaybackState();
 }).catch((error: unknown) => {
   console.error(error);
