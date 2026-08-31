@@ -12,6 +12,16 @@ export const VEHICLE_CATALOG: VehicleDefinition[] = [
     nitrousPower: 32, wheelbaseM: 2.83, color: '#8d1e35'
   },
   {
+    id: 'hibiki-3', name: 'Hibiki 3', vehicleClass: 'hatch', massKg: 1240, powerKw: 205,
+    maxSpeedKph: 252, grip: 0.88, driftBias: 0.5, steeringResponse: 9.2, brakeStrength: 38,
+    nitrousPower: 29, wheelbaseM: 2.51, color: '#706b55'
+  },
+  {
+    id: 'oni-v8', name: 'Oni V8', vehicleClass: 'muscle', massKg: 1720, powerKw: 360,
+    maxSpeedKph: 296, grip: 0.81, driftBias: 0.72, steeringResponse: 7.2, brakeStrength: 41,
+    nitrousPower: 35, wheelbaseM: 2.88, color: '#5d3f3b'
+  },
+  {
     id: 'mako-x', name: 'Mako X', vehicleClass: 'exotic', massKg: 1420, powerKw: 405,
     maxSpeedKph: 324, grip: 0.95, driftBias: 0.32, steeringResponse: 7.9, brakeStrength: 46,
     nitrousPower: 36, wheelbaseM: 2.7, color: '#d4c7a4'
@@ -27,6 +37,11 @@ export const VEHICLE_CATALOG: VehicleDefinition[] = [
     nitrousPower: 0, wheelbaseM: 3.1, color: '#d0d0c8'
   },
   {
+    id: 'dock-hauler', name: 'Dock Hauler', vehicleClass: 'utility-truck', massKg: 3380, powerKw: 145,
+    maxSpeedKph: 126, grip: 0.67, driftBias: 0.01, steeringResponse: 4.7, brakeStrength: 27,
+    nitrousPower: 0, wheelbaseM: 3.45, color: '#625f58'
+  },
+  {
     id: 'interceptor-9', name: 'Interceptor 9', vehicleClass: 'police-interceptor', massKg: 1680, powerKw: 340,
     maxSpeedKph: 302, grip: 0.94, driftBias: 0.28, steeringResponse: 8.6, brakeStrength: 45,
     nitrousPower: 26, wheelbaseM: 2.79, color: '#20252b'
@@ -37,6 +52,8 @@ export const VEHICLE_CATALOG: VehicleDefinition[] = [
     nitrousPower: 18, wheelbaseM: 3.05, color: '#1b2026'
   }
 ];
+
+export const PLAYER_VEHICLE_IDS = ['kaze-s1', 'raijin-r', 'hibiki-3', 'oni-v8', 'mako-x'] as const;
 
 export const getVehicleDefinition = (id: string): VehicleDefinition => {
   const vehicle = VEHICLE_CATALOG.find((entry) => entry.id === id);
