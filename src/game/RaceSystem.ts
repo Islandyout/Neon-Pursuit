@@ -1,12 +1,10 @@
-import { Color3, Vector3 } from '@babylonjs/core/Maths/math';
-import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
-import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
-import type { Mesh } from '@babylonjs/core/Meshes/mesh';
-import type { Scene } from '@babylonjs/core/scene';
+import { Vector3 } from '@babylonjs/core/Maths/math';
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { RoadEdge } from './contracts';
 import { getRoadEdge } from './RoadNetwork';
 import { edgeLength, sampleEdge } from './TrafficSystem';
 import { NIGHT_LOOP, NIGHT_LOOP_SHORTCUT } from './RaceRoutes';
+import { ModelLibrary } from './ModelLibrary';
 
 interface RivalState {
   routeIndex: number;
@@ -18,24 +16,21 @@ interface RivalState {
 }
 
 export class RaceSystem {
-  private readonly rival: Mesh;
+  private readonly rival: TransformNode;
   private readonly routes: Record<'main' | 'shortcut', RoadEdge[]>;
   private readonly state: RivalState = { routeIndex: 0, distance: 0, speed: 0, completedEdges: 0, completedLaps: 0, activeRoute: 'main' };
   private readonly rivalSkill = 0.72;
 
-  constructor(scene: Scene) {
+  constructor(models: ModelLibrary) {
     this.routes = {
       main: NIGHT_LOOP.edgeIds.map(getRoadEdge),
       shortcut: NIGHT_LOOP_SHORTCUT.edgeIds.map(getRoadEdge)
     };
-    this.rival = MeshBuilder.CreateBox('rival-car', { width: 1.96, height: 1.08, depth: 4.45 }, scene);
-    const material = new StandardMaterial('rival-material', scene);
-    material.diffuseColor = Color3.FromHexString('#8b5a45');
-    material.specularColor = Color3.FromHexString('#55585b');
-    this.rival.material = material;
+    this.rival = models.instantiate('car-sedan-sports', 'rival-car');
+    this.rival.scaling.setAll(1.62);
     const start = sampleEdge(this.currentRoute()[0], 18);
-    this.rival.position.set(start.position.x, this.currentRoute()[0].roadClass === 'expressway' ? 4.75 : 0.64, start.position.z);
-    this.rival.rotation.y = start.yaw;
+    this.rival.position.set(start.position.x, this.currentRoute()[0].roadClass === 'expressway' ? 4.45 : 0.06, start.position.z);
+    this.rival.rotation.y = start.yaw + Math.PI;
   }
 
   update(dt: number, playerPosition: Vector3): void {
@@ -67,10 +62,10 @@ export class RaceSystem {
     const rightZ = -Math.sin(sample.yaw);
     this.rival.position.set(
       sample.position.x + rightX * laneOffset,
-      activeRoad.roadClass === 'expressway' ? 4.75 : 0.64,
+      activeRoad.roadClass === 'expressway' ? 4.45 : 0.06,
       sample.position.z + rightZ * laneOffset
     );
-    this.rival.rotation.y = sample.yaw;
+    this.rival.rotation.y = sample.yaw + Math.PI;
   }
 
   getProgress01(): number {
@@ -85,7 +80,7 @@ export class RaceSystem {
   }
 
   dispose(): void {
-    this.rival.dispose(false, true);
+    this.rival.dispose(false);
   }
 
   private currentRoute(): RoadEdge[] {
