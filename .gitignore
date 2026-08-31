@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .vite/
+public/assets/kenney/
 *.log
 .DS_Store
 .env
