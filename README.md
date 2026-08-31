@@ -8,22 +8,32 @@
 - WebGPU renderer with automatic WebGL fallback.
 - Installable Progressive Web App (PWA).
 - Offline app-shell caching through Workbox / `vite-plugin-pwa`.
-- Keyboard, gamepad, and touch driving controls.
-- Arcade acceleration, braking, speed-sensitive steering, handbrake yaw, nitrous, basic heat buildup, gear and speed telemetry.
+- Keyboard, gamepad, and mobile multi-touch driving controls.
+- Arcade acceleration, braking, speed-sensitive steering, handbrake/drift yaw, nitrous, basic heat buildup, gear and speed telemetry.
 - Responsive chase camera and neon city blockout.
-- Mobile-safe landscape/fullscreen presentation.
+- Phone safe-area support for notches and gesture bars.
+- Best-effort fullscreen and landscape orientation when mobile driving begins.
+- Portrait rotate prompt with automatic gameplay pause/resume.
+- Adaptive mobile-high/mobile-low graphics tiers based on device capability.
+- Reduced render pixel density, world density and post-processing on lower-powered phones.
 
 ## Controls
 
-| Action | Keyboard | Gamepad |
-| --- | --- | --- |
-| Accelerate | W / Up | RT / A |
-| Brake / Reverse | S / Down | LT / B |
-| Steer | A/D / Left/Right | Left stick |
-| Handbrake | Space | X |
-| Nitrous | Shift | RB |
+| Action | Keyboard | Gamepad | Mobile |
+| --- | --- | --- | --- |
+| Accelerate | W / Up | RT / A | GO |
+| Brake / Reverse | S / Down | LT / B | BRAKE |
+| Steer | A/D / Left/Right | Left stick | Left / Right |
+| Handbrake / Drift | Space | X | DRIFT |
+| Nitrous | Shift | RB | N₂O |
 
-Touch controls appear automatically on coarse-pointer/mobile devices.
+Mobile inputs support simultaneous touches, progressive throttle/steering ramps and haptic feedback where the browser/device exposes vibration.
+
+## Mobile target
+
+The playable PWA is designed for current Android and iOS browsers with a landscape-first HUD. WebGPU is preferred where supported; WebGL remains the compatibility renderer. Fullscreen and orientation locking are best-effort because browser policies differ, so the UI always has a safe fallback.
+
+The mobile renderer caps effective pixel density and scales city/detail/post-processing according to a device tier. This is the first layer of the performance strategy; later world streaming, compressed textures and pooled traffic will further reduce memory and GPU pressure.
 
 ## Local development
 
