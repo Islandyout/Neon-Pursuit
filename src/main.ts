@@ -11,6 +11,7 @@ const canvas = getElement<HTMLCanvasElement>('game-canvas');
 const driveButton = getElement<HTMLButtonElement>('drive-button');
 const startCard = getElement<HTMLElement>('start-card');
 const installButton = getElement<HTMLButtonElement>('install-button');
+const controlModeButton = getElement<HTMLButtonElement>('control-mode-button');
 const offlineBadge = getElement<HTMLElement>('offline-badge');
 const coarsePointer = window.matchMedia('(pointer: coarse)');
 const portrait = window.matchMedia('(orientation: portrait)');
@@ -20,7 +21,10 @@ const game = new NeonPursuitGame(canvas, {
   speed: getElement('speed'),
   gear: getElement('gear'),
   nitroFill: getElement('nitro-fill'),
-  heatPips: getElement('heat-pips')
+  heatPips: getElement('heat-pips'),
+  pursuitState: getElement('pursuit-state'),
+  fps: getElement('fps'),
+  driftScore: getElement('drift-score')
 });
 
 let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
@@ -43,6 +47,14 @@ installButton.addEventListener('click', async () => {
   await deferredInstallPrompt.userChoice;
   deferredInstallPrompt = null;
   installButton.classList.add('hidden');
+});
+
+controlModeButton.addEventListener('click', async () => {
+  try {
+    await game.cycleControlMode();
+  } catch (error) {
+    console.warn('Could not change mobile steering mode.', error);
+  }
 });
 
 driveButton.addEventListener('click', async () => {
@@ -89,7 +101,7 @@ window.addEventListener('pagehide', () => game.dispose(), { once: true });
 
 async function enterMobilePlayMode(): Promise<void> {
   if (!coarsePointer.matches) {
-    game.start();
+    await game.start();
     return;
   }
 
@@ -98,16 +110,16 @@ async function enterMobilePlayMode(): Promise<void> {
       await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
     }
   } catch {
-    // iOS Safari and some embedded browsers do not expose document fullscreen.
+    // Fullscreen is best-effort on mobile browsers.
   }
 
   try {
     await screen.orientation.lock('landscape');
   } catch {
-    // Orientation locking is best-effort; the CSS rotate prompt remains the fallback.
+    // Orientation locking is best-effort; the rotate prompt remains the fallback.
   }
 
-  game.start();
+  await game.start();
 }
 
 function getElement<T extends HTMLElement = HTMLElement>(id: string): T {
