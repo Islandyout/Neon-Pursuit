@@ -165,8 +165,10 @@ export class ArcadeCar {
   private buildVisual(): void {
     const visual = this.models.instantiate(playerModelForVehicle(this.definition.id), `player-${this.definition.id}`, true);
     visual.parent = this.root;
-    visual.scaling.setAll(this.definition.vehicleClass === 'exotic' ? 1.72 : 1.68);
-    visual.rotation.y = Math.PI;
+    visual.scaling.setAll(this.definition.vehicleClass === 'exotic' ? 1.7 : 1.66);
+    // Kenney vehicle models are authored with their front toward +Z, matching the
+    // gameplay forward vector. Do not rotate the imported visual by 180 degrees.
+    visual.rotation.y = 0;
     visual.position.y = 0;
     this.visualRoot = visual;
 
