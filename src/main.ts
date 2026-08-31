@@ -7,10 +7,6 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
-interface LockableOrientation extends ScreenOrientation {
-  lock?: (orientation: string) => Promise<void>;
-}
-
 const canvas = getElement<HTMLCanvasElement>('game-canvas');
 const driveButton = getElement<HTMLButtonElement>('drive-button');
 const startCard = getElement<HTMLElement>('start-card');
@@ -106,8 +102,7 @@ async function enterMobilePlayMode(): Promise<void> {
   }
 
   try {
-    const orientation = screen.orientation as LockableOrientation;
-    await orientation.lock?.('landscape');
+    await screen.orientation.lock('landscape');
   } catch {
     // Orientation locking is best-effort; the CSS rotate prompt remains the fallback.
   }
