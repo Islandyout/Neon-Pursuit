@@ -1,19 +1,24 @@
 {
   "name": "neon-pursuit",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
+    "assets:fetch": "node scripts/fetch-assets.mjs",
+    "assets:verify": "node scripts/fetch-assets.mjs --check",
+    "predev": "npm run assets:fetch",
     "dev": "vite --host 0.0.0.0",
     "smoke": "node scripts/smoke-check.mjs",
     "system-check": "tsx scripts/system-check.ts",
-    "verify": "npm run smoke && npm run system-check && npm run build",
+    "verify": "npm run assets:fetch && npm run assets:verify && npm run smoke && npm run system-check && npm run build",
+    "prebuild": "npm run assets:fetch && npm run assets:verify",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@babylonjs/core": "9.23.0"
+    "@babylonjs/core": "9.23.0",
+    "@babylonjs/loaders": "9.23.0"
   },
   "devDependencies": {
     "tsx": "^4.20.0",
