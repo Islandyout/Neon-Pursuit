@@ -14,6 +14,8 @@ const installButton = getElement<HTMLButtonElement>('install-button');
 const controlModeButton = getElement<HTMLButtonElement>('control-mode-button');
 const vehicleButton = getElement<HTMLButtonElement>('vehicle-button');
 const vehicleLabel = getElement<HTMLElement>('vehicle-label');
+const styleButton = getElement<HTMLButtonElement>('style-button');
+const styleLabel = getElement<HTMLElement>('style-label');
 const offlineBadge = getElement<HTMLElement>('offline-badge');
 const coarsePointer = window.matchMedia('(pointer: coarse)');
 const portrait = window.matchMedia('(orientation: portrait)');
@@ -62,6 +64,12 @@ controlModeButton.addEventListener('click', async () => {
 vehicleButton.addEventListener('click', () => {
   const name = game.cycleVehicle();
   if (name) vehicleLabel.textContent = name.toUpperCase();
+  styleLabel.textContent = '1';
+});
+
+styleButton.addEventListener('click', () => {
+  const label = game.cycleCustomization();
+  if (label) styleLabel.textContent = label.replace('STYLE ', '');
 });
 
 driveButton.addEventListener('click', async () => {
@@ -95,7 +103,11 @@ registerSW({
   onRegisterError: (error) => console.error('Service worker registration failed.', error)
 });
 
-void game.initialize().then(syncPlaybackState).catch((error: unknown) => {
+void game.initialize().then(() => {
+  const name = game.getVehicleName();
+  if (name) vehicleLabel.textContent = name.toUpperCase();
+  syncPlaybackState();
+}).catch((error: unknown) => {
   console.error(error);
   const title = startCard.querySelector('h1');
   const copy = startCard.querySelector('p:not(.eyebrow)');
