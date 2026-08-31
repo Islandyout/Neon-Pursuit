@@ -17,6 +17,7 @@ import { PursuitSystem, type PursuitSnapshot } from './PursuitSystem';
 import { RaceSystem } from './RaceSystem';
 import { AudioDirector } from './AudioDirector';
 import { PerformanceManager } from './PerformanceManager';
+import { PLAYER_VEHICLE_IDS, getVehicleDefinition } from './VehicleCatalog';
 
 export interface GameHudBindings {
   renderer: HTMLElement;
@@ -41,6 +42,7 @@ export class NeonPursuitGame {
   private readonly audio = new AudioDirector();
   private lastTime = performance.now();
   private running = false;
+  private vehicleIndex = 0;
   private readonly qualityTier = this.detectQualityTier();
   private readonly performanceManager = new PerformanceManager(this.qualityTier);
 
@@ -51,7 +53,7 @@ export class NeonPursuitGame {
     this.configureResolution(this.engine);
     this.scene = this.createScene(this.engine);
     this.input = new InputManager();
-    this.car = new ArcadeCar(this.scene);
+    this.car = new ArcadeCar(this.scene, PLAYER_VEHICLE_IDS[this.vehicleIndex]);
     this.camera = this.createCamera(this.scene);
     buildWorld(this.scene, this.qualityTier);
     this.buildRendering(this.scene, this.camera);
@@ -88,6 +90,14 @@ export class NeonPursuitGame {
 
   getControlMode(): ControlMode | null {
     return this.input?.getControlMode() ?? null;
+  }
+
+  cycleVehicle(): string | null {
+    if (!this.car) return null;
+    this.vehicleIndex = (this.vehicleIndex + 1) % PLAYER_VEHICLE_IDS.length;
+    const id = PLAYER_VEHICLE_IDS[this.vehicleIndex];
+    this.car.setVehicle(id);
+    return getVehicleDefinition(id).name;
   }
 
   dispose(): void {
