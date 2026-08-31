@@ -9,7 +9,6 @@ const ROOT = join(process.cwd(), 'public', 'assets', 'kenney');
 const CHECK_ONLY = process.argv.includes('--check');
 
 export const REQUIRED_ASSETS = [
-  'car-kit/race.glb',
   'car-kit/sedan-sports.glb',
   'car-kit/hatchback-sports.glb',
   'car-kit/suv-luxury.glb',
@@ -19,18 +18,44 @@ export const REQUIRED_ASSETS = [
   'car-kit/truck.glb',
   'car-kit/Textures/colormap.png',
   'city-kit-roads/road-straight.glb',
+  'city-kit-roads/road-straight-barrier.glb',
   'city-kit-roads/road-crossroad-path.glb',
+  'city-kit-roads/road-crossroad.glb',
+  'city-kit-roads/light-curved.glb',
+  'city-kit-roads/sign-highway-detailed.glb',
+  'city-kit-roads/construction-barrier.glb',
   'city-kit-roads/Textures/colormap.png',
   'city-kit-roads/Textures/variation-a.png',
   'city-kit-commercial/building-a.glb',
+  'city-kit-commercial/building-b.glb',
   'city-kit-commercial/building-c.glb',
+  'city-kit-commercial/building-d.glb',
   'city-kit-commercial/building-f.glb',
+  'city-kit-commercial/building-g.glb',
+  'city-kit-commercial/building-h.glb',
   'city-kit-commercial/building-l.glb',
+  'city-kit-commercial/building-m.glb',
+  'city-kit-commercial/building-n.glb',
   'city-kit-commercial/building-skyscraper-a.glb',
+  'city-kit-commercial/building-skyscraper-b.glb',
   'city-kit-commercial/building-skyscraper-c.glb',
+  'city-kit-commercial/building-skyscraper-d.glb',
   'city-kit-commercial/Textures/colormap.png',
   'city-kit-commercial/Textures/variation-a.png',
-  'city-kit-commercial/Textures/variation-b.png'
+  'city-kit-commercial/Textures/variation-b.png',
+  'city-kit-suburban/building-type-b.glb',
+  'city-kit-suburban/building-type-d.glb',
+  'city-kit-suburban/building-type-f.glb',
+  'city-kit-suburban/building-type-h.glb',
+  'city-kit-suburban/building-type-l.glb',
+  'city-kit-suburban/building-type-o.glb',
+  'city-kit-suburban/tree-small.glb',
+  'city-kit-suburban/tree-large.glb',
+  'city-kit-suburban/fence-1x4.glb',
+  'city-kit-suburban/Textures/colormap.png',
+  'city-kit-suburban/Textures/variation-a.png',
+  'city-kit-suburban/Textures/variation-b.png',
+  'city-kit-suburban/Textures/variation-c.png'
 ];
 
 const isGlb = (path) => path.endsWith('.glb');
