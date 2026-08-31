@@ -7,23 +7,29 @@ export interface DistrictAssetManifest {
 const CAR = '/assets/kenney/car-kit';
 const ROAD = '/assets/kenney/city-kit-roads';
 const CITY = '/assets/kenney/city-kit-commercial';
+const SUBURBAN = '/assets/kenney/city-kit-suburban';
 
 export const DISTRICT_ASSETS: DistrictAssetManifest[] = [
   {
     id: 'shibuya-core',
     required: [
-      `${CAR}/race.glb`,
       `${CAR}/sedan-sports.glb`,
       `${CAR}/hatchback-sports.glb`,
       `${CAR}/sedan.glb`,
       `${CAR}/van.glb`,
       `${ROAD}/road-straight.glb`,
       `${ROAD}/road-crossroad-path.glb`,
+      `${ROAD}/light-curved.glb`,
       `${CITY}/building-a.glb`,
+      `${CITY}/building-b.glb`,
       `${CITY}/building-c.glb`,
-      `${CITY}/building-f.glb`,
+      `${CITY}/building-d.glb`,
+      `${CITY}/building-g.glb`,
+      `${CITY}/building-h.glb`,
       `${CITY}/building-skyscraper-a.glb`,
-      `${CITY}/building-skyscraper-c.glb`
+      `${CITY}/building-skyscraper-b.glb`,
+      `${CITY}/building-skyscraper-c.glb`,
+      `${CITY}/building-skyscraper-d.glb`
     ],
     optional: [
       `${CAR}/Textures/colormap.png`,
@@ -40,8 +46,12 @@ export const DISTRICT_ASSETS: DistrictAssetManifest[] = [
       `${CAR}/truck.glb`,
       `${CAR}/van.glb`,
       `${ROAD}/road-straight.glb`,
+      `${ROAD}/construction-barrier.glb`,
       `${CITY}/building-f.glb`,
-      `${CITY}/building-l.glb`
+      `${CITY}/building-l.glb`,
+      `${CITY}/building-m.glb`,
+      `${CITY}/building-n.glb`,
+      `${SUBURBAN}/fence-1x4.glb`
     ],
     optional: []
   },
@@ -50,10 +60,13 @@ export const DISTRICT_ASSETS: DistrictAssetManifest[] = [
     required: [
       `${CAR}/police.glb`,
       `${CAR}/suv-luxury.glb`,
-      `${ROAD}/road-straight.glb`,
-      `${ROAD}/road-crossroad-path.glb`,
+      `${ROAD}/road-straight-barrier.glb`,
+      `${ROAD}/road-crossroad.glb`,
+      `${ROAD}/sign-highway-detailed.glb`,
       `${CITY}/building-skyscraper-a.glb`,
-      `${CITY}/building-skyscraper-c.glb`
+      `${CITY}/building-skyscraper-b.glb`,
+      `${CITY}/building-skyscraper-c.glb`,
+      `${CITY}/building-skyscraper-d.glb`
     ],
     optional: []
   },
@@ -63,15 +76,26 @@ export const DISTRICT_ASSETS: DistrictAssetManifest[] = [
       `${CAR}/hatchback-sports.glb`,
       `${CAR}/sedan.glb`,
       `${ROAD}/road-straight.glb`,
-      `${CITY}/building-a.glb`,
-      `${CITY}/building-c.glb`
+      `${SUBURBAN}/building-type-b.glb`,
+      `${SUBURBAN}/building-type-d.glb`,
+      `${SUBURBAN}/building-type-f.glb`,
+      `${SUBURBAN}/building-type-h.glb`,
+      `${SUBURBAN}/building-type-l.glb`,
+      `${SUBURBAN}/building-type-o.glb`,
+      `${SUBURBAN}/tree-small.glb`,
+      `${SUBURBAN}/tree-large.glb`
     ],
-    optional: []
+    optional: [
+      `${SUBURBAN}/Textures/colormap.png`,
+      `${SUBURBAN}/Textures/variation-a.png`,
+      `${SUBURBAN}/Textures/variation-b.png`,
+      `${SUBURBAN}/Textures/variation-c.png`
+    ]
   }
 ];
 
 export class AssetStreamManager {
-  private readonly cacheName = 'neon-pursuit-runtime-v2';
+  private readonly cacheName = 'neon-pursuit-runtime-v3';
   private loadedDistricts = new Set<string>();
 
   async stageDistrict(id: string): Promise<void> {
