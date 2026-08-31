@@ -3,25 +3,10 @@ import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import type { Scene } from '@babylonjs/core/scene';
-import type { RaceRoute, RoadEdge } from './contracts';
+import type { RoadEdge } from './contracts';
 import { getRoadEdge } from './RoadNetwork';
 import { edgeLength, sampleEdge } from './TrafficSystem';
-
-export const NIGHT_LOOP: RaceRoute = {
-  id: 'night-loop',
-  name: 'Midnight Loop',
-  edgeIds: ['arterial-east', 'bay-connector', 'dock-run', 'express-ne', 'express-north', 'express-west', 'old-quarter', 'arterial-west'],
-  laps: 2,
-  targetTimeSeconds: 155
-};
-
-export const NIGHT_LOOP_SHORTCUT: RaceRoute = {
-  id: 'night-loop-parking-cut',
-  name: 'Midnight Loop · Parking Cut',
-  edgeIds: ['parking-entry', 'parking-cut', 'parking-exit', 'dock-run', 'express-ne', 'express-north', 'express-west', 'old-quarter', 'arterial-west'],
-  laps: 2,
-  targetTimeSeconds: 147
-};
+import { NIGHT_LOOP, NIGHT_LOOP_SHORTCUT } from './RaceRoutes';
 
 interface RivalState {
   routeIndex: number;
