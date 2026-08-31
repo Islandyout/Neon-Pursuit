@@ -1,8 +1,5 @@
-import { Color3, Vector3 } from '@babylonjs/core/Maths/math';
-import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
-import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
+import { Vector3 } from '@babylonjs/core/Maths/math';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
-import type { Scene } from '@babylonjs/core/scene';
 import type { PursuitState, QualityTier, VehicleTelemetry } from './contracts';
 import { ROAD_GRAPH, findClosestRoad } from './RoadNetwork';
 import { ModelLibrary } from './ModelLibrary';
@@ -27,7 +24,7 @@ export class PursuitSystem {
   private lastActiveHeat = 0;
   private readonly maxUnits: number;
 
-  constructor(private readonly scene: Scene, private readonly models: ModelLibrary, qualityTier: QualityTier) {
+  constructor(private readonly models: ModelLibrary, qualityTier: QualityTier) {
     this.maxUnits = qualityTier === 'desktop' ? 5 : qualityTier === 'mobile-high' ? 3 : 2;
   }
 
@@ -110,7 +107,7 @@ export class PursuitSystem {
     const mesh = this.models.instantiate(heavy ? 'car-suv-luxury' : 'car-police', `police-${seed}`);
     mesh.scaling.setAll(heavy ? 1.72 : 1.62);
     mesh.position.set(spawn.x, 0.06, spawn.z);
-    mesh.rotation.y = Math.PI;
+    mesh.rotation.y = 0;
     return { mesh, speed: heavy ? 16 : 19, seed };
   }
 
@@ -125,13 +122,11 @@ export class PursuitSystem {
     })[0];
     if (!target) return;
 
-    const barrierMaterial = new StandardMaterial('roadblock-barrier-material', this.scene);
-    barrierMaterial.diffuseColor = Color3.FromHexString('#a7a7a0');
-    barrierMaterial.emissiveColor = Color3.FromHexString('#3e2e20');
-    for (const offset of [-5.5, 0, 5.5]) {
-      const barrier = MeshBuilder.CreateBox(`roadblock-barrier-${offset}`, { width: 4.7, height: 0.75, depth: 0.7 }, this.scene);
-      barrier.position.set(target.position.x + offset, 0.45, target.position.z);
-      barrier.material = barrierMaterial;
+    for (const offset of [-6, -2, 2, 6]) {
+      const barrier = this.models.instantiate('construction-barrier', `roadblock-barrier-${offset}`);
+      barrier.scaling.setAll(2.2);
+      barrier.position.set(target.position.x + offset, 0.03, target.position.z);
+      barrier.rotation.y = Math.PI / 2;
       this.roadblock.push(barrier);
     }
 
@@ -139,7 +134,7 @@ export class PursuitSystem {
       const unit = this.models.instantiate('car-suv-luxury', `roadblock-unit-${offset}`);
       unit.scaling.setAll(1.72);
       unit.position.set(target.position.x + offset, 0.06, target.position.z + 3.3);
-      unit.rotation.y = Math.PI * 1.5;
+      unit.rotation.y = Math.PI / 2;
       this.roadblock.push(unit);
     }
   }
@@ -165,6 +160,6 @@ export class PursuitSystem {
     unit.speed += (desiredSpeed - unit.speed) * Math.min(1, dt * 1.7);
     unit.mesh.position.addInPlace(direction.scale(Math.min(distance, unit.speed * dt)));
     unit.mesh.position.y = 0.06;
-    unit.mesh.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
+    unit.mesh.rotation.y = Math.atan2(direction.x, direction.z);
   }
 }
