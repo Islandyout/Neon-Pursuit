@@ -20,6 +20,7 @@ import { PerformanceManager } from './PerformanceManager';
 import { PLAYER_VEHICLE_IDS, getVehicleDefinition } from './VehicleCatalog';
 import { GarageSystem, CUSTOMIZATION_PRESETS } from './GarageSystem';
 import { AssetStreamManager } from './AssetStreamManager';
+import { findClosestRoad } from './RoadNetwork';
 
 export interface GameHudBindings {
   renderer: HTMLElement;
@@ -239,7 +240,8 @@ export class NeonPursuitGame {
       this.traffic?.update(dt, this.car.root.position);
       this.race?.update(dt, this.car.root.position);
       const pursuitSnapshot = this.pursuit?.update(dt, this.car.root.position, telemetry) ?? { state: 'patrol', activeUnits: 0, interceptRoad: null } satisfies PursuitSnapshot;
-      this.audio.update(telemetry, pursuitSnapshot.state);
+      const road = findClosestRoad({ x: this.car.root.position.x, z: this.car.root.position.z });
+      this.audio.update(telemetry, pursuitSnapshot.state, road.roadClass);
       this.updateCamera(dt, telemetry);
       this.updateHud(telemetry, pursuitSnapshot);
     }
