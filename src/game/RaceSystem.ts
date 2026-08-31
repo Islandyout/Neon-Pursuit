@@ -30,7 +30,7 @@ export class RaceSystem {
     this.rival.scaling.setAll(1.62);
     const start = sampleEdge(this.currentRoute()[0], 18);
     this.rival.position.set(start.position.x, this.currentRoute()[0].roadClass === 'expressway' ? 4.45 : 0.06, start.position.z);
-    this.rival.rotation.y = start.yaw + Math.PI;
+    this.rival.rotation.y = start.yaw;
   }
 
   update(dt: number, playerPosition: Vector3): void {
@@ -65,7 +65,7 @@ export class RaceSystem {
       activeRoad.roadClass === 'expressway' ? 4.45 : 0.06,
       sample.position.z + rightZ * laneOffset
     );
-    this.rival.rotation.y = sample.yaw + Math.PI;
+    this.rival.rotation.y = sample.yaw;
   }
 
   getProgress01(): number {
