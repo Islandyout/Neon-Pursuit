@@ -6,12 +6,17 @@ import { Color3, Color4, Vector3 } from '@babylonjs/core/Maths/math';
 import { UniversalCamera } from '@babylonjs/core/Cameras/universalCamera';
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
-import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
-import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { GlowLayer } from '@babylonjs/core/Layers/glowLayer';
 import { DefaultRenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline';
 import { InputManager } from './InputManager';
-import { ArcadeCar, type CarTelemetry } from './ArcadeCar';
+import { ArcadeCar } from './ArcadeCar';
+import type { ControlMode, QualityTier, VehicleTelemetry } from './contracts';
+import { buildWorld } from './WorldBuilder';
+import { TrafficSystem } from './TrafficSystem';
+import { PursuitSystem, type PursuitSnapshot } from './PursuitSystem';
+import { RaceSystem } from './RaceSystem';
+import { AudioDirector } from './AudioDirector';
+import { PerformanceManager } from './PerformanceManager';
 
 export interface GameHudBindings {
   renderer: HTMLElement;
@@ -19,9 +24,10 @@ export interface GameHudBindings {
   gear: HTMLElement;
   nitroFill: HTMLElement;
   heatPips: HTMLElement;
+  pursuitState: HTMLElement;
+  fps: HTMLElement;
+  driftScore: HTMLElement;
 }
-
-type QualityTier = 'desktop' | 'mobile-high' | 'mobile-low';
 
 export class NeonPursuitGame {
   private engine: AbstractEngine | null = null;
@@ -29,9 +35,14 @@ export class NeonPursuitGame {
   private input: InputManager | null = null;
   private car: ArcadeCar | null = null;
   private camera: UniversalCamera | null = null;
+  private traffic: TrafficSystem | null = null;
+  private pursuit: PursuitSystem | null = null;
+  private race: RaceSystem | null = null;
+  private readonly audio = new AudioDirector();
   private lastTime = performance.now();
   private running = false;
   private readonly qualityTier = this.detectQualityTier();
+  private readonly performanceManager = new PerformanceManager(this.qualityTier);
 
   constructor(private readonly canvas: HTMLCanvasElement, private readonly hud: GameHudBindings) {}
 
@@ -42,8 +53,11 @@ export class NeonPursuitGame {
     this.input = new InputManager();
     this.car = new ArcadeCar(this.scene);
     this.camera = this.createCamera(this.scene);
-    this.buildWorld(this.scene);
+    buildWorld(this.scene, this.qualityTier);
     this.buildRendering(this.scene, this.camera);
+    this.traffic = new TrafficSystem(this.scene, this.qualityTier);
+    this.pursuit = new PursuitSystem(this.scene, this.qualityTier);
+    this.race = new RaceSystem(this.scene);
     this.populateHeatPips();
     this.engine.resize();
     window.addEventListener('resize', this.resize);
@@ -51,10 +65,11 @@ export class NeonPursuitGame {
     this.engine.runRenderLoop(this.renderLoop);
   }
 
-  start(): void {
+  async start(): Promise<void> {
     this.running = true;
     this.lastTime = performance.now();
     this.canvas.focus({ preventScroll: true });
+    await this.audio.start();
   }
 
   pause(): void {
@@ -67,8 +82,20 @@ export class NeonPursuitGame {
     this.lastTime = performance.now();
   }
 
+  async cycleControlMode(): Promise<ControlMode | null> {
+    return this.input ? this.input.cycleControlMode() : null;
+  }
+
+  getControlMode(): ControlMode | null {
+    return this.input?.getControlMode() ?? null;
+  }
+
   dispose(): void {
     this.input?.dispose();
+    this.traffic?.dispose();
+    this.pursuit?.dispose();
+    this.race?.dispose();
+    this.audio.dispose();
     window.removeEventListener('resize', this.resize);
     window.visualViewport?.removeEventListener('resize', this.resize);
     this.engine?.dispose();
@@ -78,7 +105,6 @@ export class NeonPursuitGame {
     const coarse = window.matchMedia('(pointer: coarse)').matches;
     const narrow = Math.min(window.innerWidth, window.innerHeight) < 900;
     if (!coarse && !narrow) return 'desktop';
-
     const nav = navigator as Navigator & { deviceMemory?: number };
     const memory = nav.deviceMemory ?? 8;
     const cores = navigator.hardwareConcurrency || 8;
@@ -102,122 +128,48 @@ export class NeonPursuitGame {
 
   private configureResolution(engine: AbstractEngine): void {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const targetDpr = this.qualityTier === 'desktop' ? Math.min(dpr, 2) : this.qualityTier === 'mobile-high' ? Math.min(dpr, 1.5) : Math.min(dpr, 1.15);
-    engine.setHardwareScalingLevel(dpr / targetDpr);
+    const targetDpr = this.performanceManager.getTargetDpr(dpr);
+    engine.setHardwareScalingLevel(dpr / Math.max(0.75, targetDpr));
   }
 
   private createScene(engine: AbstractEngine): Scene {
     const scene = new Scene(engine);
-    scene.clearColor = Color4.FromHexString('#050609ff');
+    scene.clearColor = Color4.FromHexString('#080a0dff');
     scene.fogMode = Scene.FOGMODE_EXP2;
-    scene.fogDensity = this.qualityTier === 'mobile-low' ? 0.0022 : 0.00165;
-    scene.fogColor = Color3.FromHexString('#070a12');
-    const hemi = new HemisphericLight('ambient', new Vector3(0.2, 1, -0.1), scene);
-    hemi.intensity = 0.55;
-    hemi.diffuse = Color3.FromHexString('#8ab9ff');
-    hemi.groundColor = Color3.FromHexString('#10131e');
-    const moon = new DirectionalLight('moon', new Vector3(-0.25, -1, 0.35), scene);
-    moon.intensity = 1.2;
-    moon.diffuse = Color3.FromHexString('#b8d6ff');
+    scene.fogDensity = this.qualityTier === 'mobile-low' ? 0.002 : 0.00135;
+    scene.fogColor = Color3.FromHexString('#101317');
+    const ambient = new HemisphericLight('ambient', new Vector3(0.18, 1, -0.08), scene);
+    ambient.intensity = 0.5;
+    ambient.diffuse = Color3.FromHexString('#9aa7b1');
+    ambient.groundColor = Color3.FromHexString('#15181b');
+    const cityLight = new DirectionalLight('city-night', new Vector3(-0.28, -1, 0.3), scene);
+    cityLight.intensity = 0.78;
+    cityLight.diffuse = Color3.FromHexString('#d3d6cf');
     return scene;
   }
 
   private createCamera(scene: Scene): UniversalCamera {
-    const camera = new UniversalCamera('chase-camera', new Vector3(0, 4.2, -9), scene);
+    const camera = new UniversalCamera('chase-camera', new Vector3(0, 4.1, -9), scene);
     camera.minZ = 0.05;
-    camera.fov = 0.9;
+    camera.fov = 0.88;
     camera.inputs.clear();
     return camera;
   }
 
-  private buildWorld(scene: Scene): void {
-    const groundMaterial = new StandardMaterial('ground-material', scene);
-    groundMaterial.diffuseColor = Color3.FromHexString('#07090d');
-    groundMaterial.specularColor = new Color3(0.08, 0.1, 0.13);
-    const roadMaterial = new StandardMaterial('road-material', scene);
-    roadMaterial.diffuseColor = Color3.FromHexString('#171a20');
-    roadMaterial.specularColor = new Color3(0.24, 0.28, 0.32);
-    const laneMaterial = new StandardMaterial('lane-material', scene);
-    laneMaterial.diffuseColor = Color3.FromHexString('#7df6ff');
-    laneMaterial.emissiveColor = Color3.FromHexString('#0f6974');
-    const neonPink = new StandardMaterial('neon-pink', scene);
-    neonPink.diffuseColor = Color3.FromHexString('#ff2ea6');
-    neonPink.emissiveColor = Color3.FromHexString('#8d0f5b');
-    const neonCyan = new StandardMaterial('neon-cyan', scene);
-    neonCyan.diffuseColor = Color3.FromHexString('#1ce9ff');
-    neonCyan.emissiveColor = Color3.FromHexString('#086d79');
-    const buildingMaterials: StandardMaterial[] = [];
-
-    for (let i = 0; i < 5; i += 1) {
-      const material = new StandardMaterial(`building-material-${i}`, scene);
-      material.diffuseColor = Color3.FromHSV(0.56 + i * 0.018, 0.28, 0.12 + i * 0.018);
-      material.specularColor = new Color3(0.12, 0.16, 0.22);
-      buildingMaterials.push(material);
-    }
-
-    const ground = MeshBuilder.CreateGround('city-ground', { width: 2400, height: 2400 }, scene);
-    ground.material = groundMaterial;
-    const roadSpacing = 170;
-    const roadWidth = 34;
-    const gridRadius = this.qualityTier === 'desktop' ? 6 : this.qualityTier === 'mobile-high' ? 5 : 4;
-    const markerRadius = this.qualityTier === 'desktop' ? 10 : 7;
-
-    for (let i = -gridRadius; i <= gridRadius; i += 1) {
-      const offset = i * roadSpacing;
-      const vertical = MeshBuilder.CreateGround(`road-v-${i}`, { width: roadWidth, height: 2200 }, scene);
-      vertical.position.set(offset, 0.012, 0); vertical.material = roadMaterial;
-      const horizontal = MeshBuilder.CreateGround(`road-h-${i}`, { width: 2200, height: roadWidth }, scene);
-      horizontal.position.set(0, 0.014, offset); horizontal.material = roadMaterial;
-      for (let marker = -markerRadius; marker <= markerRadius; marker += 1) {
-        const segment = marker * 95;
-        const vLine = MeshBuilder.CreateBox(`lane-v-${i}-${marker}`, { width: 0.28, height: 0.025, depth: 14 }, scene);
-        vLine.position.set(offset, 0.04, segment); vLine.material = laneMaterial;
-        const hLine = MeshBuilder.CreateBox(`lane-h-${i}-${marker}`, { width: 14, height: 0.025, depth: 0.28 }, scene);
-        hLine.position.set(segment, 0.04, offset); hLine.material = laneMaterial;
-      }
-    }
-
-    const buildingSlots = this.qualityTier === 'mobile-low' ? 2 : 3;
-    for (let gx = -gridRadius; gx < gridRadius; gx += 1) {
-      for (let gz = -gridRadius; gz < gridRadius; gz += 1) {
-        if (Math.abs(gx) <= 1 && Math.abs(gz) <= 1) continue;
-        const centerX = gx * roadSpacing + roadSpacing * 0.5;
-        const centerZ = gz * roadSpacing + roadSpacing * 0.5;
-        for (let slot = 0; slot < buildingSlots; slot += 1) {
-          const hash = Math.abs((gx * 73856093) ^ (gz * 19349663) ^ (slot * 83492791));
-          const width = 28 + (hash % 32);
-          const depth = 28 + ((hash >> 3) % 34);
-          const height = 28 + ((hash >> 6) % 125);
-          const offsetX = ((hash % 3) - 1) * 42;
-          const offsetZ = (((hash >> 2) % 3) - 1) * 42;
-          const building = MeshBuilder.CreateBox(`building-${gx}-${gz}-${slot}`, { width, depth, height }, scene);
-          building.position.set(centerX + offsetX, height * 0.5, centerZ + offsetZ);
-          building.material = buildingMaterials[hash % buildingMaterials.length];
-          if (slot === 0 && hash % 4 === 0) {
-            const sign = MeshBuilder.CreateBox(`sign-${gx}-${gz}`, { width: Math.min(width * 0.8, 34), height: 3.2, depth: 0.25 }, scene);
-            sign.position.set(building.position.x, Math.min(height - 5, 28), building.position.z - depth * 0.51);
-            sign.material = hash % 2 === 0 ? neonPink : neonCyan;
-          }
-        }
-      }
-    }
-  }
-
   private buildRendering(scene: Scene, camera: UniversalCamera): void {
     if (this.qualityTier !== 'mobile-low') {
-      const glow = new GlowLayer('neon-glow', scene, { blurKernelSize: this.qualityTier === 'desktop' ? 32 : 18 });
-      glow.intensity = this.qualityTier === 'desktop' ? 0.55 : 0.38;
+      const glow = new GlowLayer('selective-night-glow', scene, { blurKernelSize: this.qualityTier === 'desktop' ? 20 : 14 });
+      glow.intensity = this.qualityTier === 'desktop' ? 0.22 : 0.14;
     }
-
     const pipeline = new DefaultRenderingPipeline('night-pipeline', true, scene, [camera]);
     pipeline.fxaaEnabled = true;
     pipeline.bloomEnabled = this.qualityTier !== 'mobile-low';
-    pipeline.bloomThreshold = 0.72;
-    pipeline.bloomWeight = this.qualityTier === 'desktop' ? 0.18 : 0.12;
-    pipeline.bloomKernel = this.qualityTier === 'desktop' ? 48 : 28;
+    pipeline.bloomThreshold = 0.9;
+    pipeline.bloomWeight = this.qualityTier === 'desktop' ? 0.07 : 0.04;
+    pipeline.bloomKernel = this.qualityTier === 'desktop' ? 28 : 18;
     pipeline.imageProcessingEnabled = true;
-    pipeline.imageProcessing.contrast = 1.18;
-    pipeline.imageProcessing.exposure = 1.05;
+    pipeline.imageProcessing.contrast = 1.08;
+    pipeline.imageProcessing.exposure = 0.96;
   }
 
   private readonly renderLoop = (): void => {
@@ -225,34 +177,44 @@ export class NeonPursuitGame {
     const now = performance.now();
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
+
+    if (this.performanceManager.recordFrame(dt)) this.configureResolution(this.engine);
+
     if (this.running) {
       const telemetry = this.car.update(dt, this.input.read());
+      this.traffic?.update(dt, this.car.root.position);
+      this.race?.update(dt, this.car.root.position);
+      const pursuitSnapshot = this.pursuit?.update(dt, this.car.root.position, telemetry) ?? { state: 'patrol', activeUnits: 0, interceptRoad: null } satisfies PursuitSnapshot;
+      this.audio.update(telemetry, pursuitSnapshot.state);
       this.updateCamera(dt, telemetry);
-      this.updateHud(telemetry);
+      this.updateHud(telemetry, pursuitSnapshot);
     }
     this.scene.render();
   };
 
-  private updateCamera(dt: number, telemetry: CarTelemetry): void {
+  private updateCamera(dt: number, telemetry: VehicleTelemetry): void {
     if (!this.camera || !this.car) return;
     const forward = this.car.getForward();
     const speedFactor = Math.min(telemetry.speedKph / 300, 1);
-    const cameraDistance = 8.8 + speedFactor * 2.8;
-    const cameraHeight = 3.4 + speedFactor * 0.8;
+    const cameraDistance = 8.6 + speedFactor * 3.1;
+    const cameraHeight = 3.35 + speedFactor * 0.72;
     const desired = this.car.root.position.subtract(forward.scale(cameraDistance));
     desired.y += cameraHeight;
-    const smooth = 1 - Math.exp(-6.5 * dt);
+    const smooth = 1 - Math.exp(-7.2 * dt);
     this.camera.position = Vector3.Lerp(this.camera.position, desired, smooth);
-    const target = this.car.root.position.add(forward.scale(4.8 + speedFactor * 4));
-    target.y += 0.65;
+    const target = this.car.root.position.add(forward.scale(5.4 + speedFactor * 5.5));
+    target.y += 0.62;
     this.camera.setTarget(target);
-    this.camera.fov += (0.92 + speedFactor * 0.16 - this.camera.fov) * Math.min(1, dt * 4);
+    this.camera.fov += (0.88 + speedFactor * 0.14 - this.camera.fov) * Math.min(1, dt * 4.6);
   }
 
-  private updateHud(telemetry: CarTelemetry): void {
+  private updateHud(telemetry: VehicleTelemetry, pursuit: PursuitSnapshot): void {
     this.hud.speed.textContent = Math.round(telemetry.speedKph).toString().padStart(3, '0');
     this.hud.gear.textContent = telemetry.gear === -1 ? 'R' : String(telemetry.gear);
     this.hud.nitroFill.style.transform = `scaleX(${telemetry.nitrous.toFixed(3)})`;
+    this.hud.pursuitState.textContent = pursuit.state.toUpperCase();
+    this.hud.fps.textContent = `${this.performanceManager.getFps()} FPS`;
+    this.hud.driftScore.textContent = telemetry.slip > 0.18 ? `DRIFT ${Math.round(telemetry.driftScore)}` : '';
     const activeHeat = Math.ceil(telemetry.heat);
     Array.from(this.hud.heatPips.children).forEach((pip, index) => pip.classList.toggle('active', index < activeHeat));
   }
