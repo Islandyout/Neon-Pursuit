@@ -21,6 +21,7 @@ import { PLAYER_VEHICLE_IDS, getVehicleDefinition } from './VehicleCatalog';
 import { GarageSystem, CUSTOMIZATION_PRESETS } from './GarageSystem';
 import { AssetStreamManager } from './AssetStreamManager';
 import { findClosestRoad } from './RoadNetwork';
+import { ModelLibrary } from './ModelLibrary';
 
 export interface GameHudBindings {
   renderer: HTMLElement;
@@ -42,6 +43,7 @@ export class NeonPursuitGame {
   private traffic: TrafficSystem | null = null;
   private pursuit: PursuitSystem | null = null;
   private race: RaceSystem | null = null;
+  private models: ModelLibrary | null = null;
   private readonly audio = new AudioDirector();
   private readonly garage = new GarageSystem();
   private readonly assetStream = new AssetStreamManager();
@@ -60,24 +62,29 @@ export class NeonPursuitGame {
     this.scene = this.createScene(this.engine);
     this.input = new InputManager();
 
+    // Required district assets are cached first, then parsed into reusable AssetContainers.
+    // A missing/corrupt production GLB now rejects initialization instead of falling back to boxes.
+    await this.assetStream.stageDistrict('shibuya-core');
+    this.models = new ModelLibrary(this.scene);
+    await this.models.preload();
+
     const garageProfile = this.garage.getProfile();
     const savedIndex = PLAYER_VEHICLE_IDS.findIndex((id) => id === garageProfile.activeVehicleId);
     this.vehicleIndex = savedIndex >= 0 ? savedIndex : 0;
     const activeVehicleId = PLAYER_VEHICLE_IDS[this.vehicleIndex];
     const savedCustomization = garageProfile.customization[activeVehicleId];
-    this.car = new ArcadeCar(this.scene, activeVehicleId, savedCustomization);
+    this.car = new ArcadeCar(this.scene, this.models, activeVehicleId, savedCustomization);
 
-    await this.assetStream.stageDistrict('shibuya-core');
     void this.assetStream.stageDistrict('bay-industrial');
     void this.assetStream.stageDistrict('elevated-loop');
     void this.assetStream.stageDistrict('old-town');
 
     this.camera = this.createCamera(this.scene);
-    buildWorld(this.scene, this.qualityTier);
+    buildWorld(this.scene, this.qualityTier, this.models);
     this.buildRendering(this.scene, this.camera);
-    this.traffic = new TrafficSystem(this.scene, this.qualityTier);
-    this.pursuit = new PursuitSystem(this.scene, this.qualityTier);
-    this.race = new RaceSystem(this.scene);
+    this.traffic = new TrafficSystem(this.models, this.qualityTier);
+    this.pursuit = new PursuitSystem(this.scene, this.models, this.qualityTier);
+    this.race = new RaceSystem(this.models);
     this.populateHeatPips();
     this.engine.resize();
     window.addEventListener('resize', this.resize);
@@ -150,6 +157,7 @@ export class NeonPursuitGame {
     this.pursuit?.dispose();
     this.race?.dispose();
     this.audio.dispose();
+    this.models?.dispose();
     this.assetStream.clearSessionState();
     window.removeEventListener('resize', this.resize);
     window.visualViewport?.removeEventListener('resize', this.resize);
@@ -194,11 +202,11 @@ export class NeonPursuitGame {
     scene.fogDensity = this.qualityTier === 'mobile-low' ? 0.002 : 0.00135;
     scene.fogColor = Color3.FromHexString('#101317');
     const ambient = new HemisphericLight('ambient', new Vector3(0.18, 1, -0.08), scene);
-    ambient.intensity = 0.5;
-    ambient.diffuse = Color3.FromHexString('#9aa7b1');
+    ambient.intensity = 0.62;
+    ambient.diffuse = Color3.FromHexString('#aab5ba');
     ambient.groundColor = Color3.FromHexString('#15181b');
     const cityLight = new DirectionalLight('city-night', new Vector3(-0.28, -1, 0.3), scene);
-    cityLight.intensity = 0.78;
+    cityLight.intensity = 0.82;
     cityLight.diffuse = Color3.FromHexString('#d3d6cf');
     return scene;
   }
@@ -214,17 +222,17 @@ export class NeonPursuitGame {
   private buildRendering(scene: Scene, camera: UniversalCamera): void {
     if (this.qualityTier !== 'mobile-low') {
       const glow = new GlowLayer('selective-night-glow', scene, { blurKernelSize: this.qualityTier === 'desktop' ? 20 : 14 });
-      glow.intensity = this.qualityTier === 'desktop' ? 0.22 : 0.14;
+      glow.intensity = this.qualityTier === 'desktop' ? 0.18 : 0.11;
     }
     const pipeline = new DefaultRenderingPipeline('night-pipeline', true, scene, [camera]);
     pipeline.fxaaEnabled = true;
     pipeline.bloomEnabled = this.qualityTier !== 'mobile-low';
-    pipeline.bloomThreshold = 0.9;
-    pipeline.bloomWeight = this.qualityTier === 'desktop' ? 0.07 : 0.04;
+    pipeline.bloomThreshold = 0.94;
+    pipeline.bloomWeight = this.qualityTier === 'desktop' ? 0.055 : 0.03;
     pipeline.bloomKernel = this.qualityTier === 'desktop' ? 28 : 18;
     pipeline.imageProcessingEnabled = true;
     pipeline.imageProcessing.contrast = 1.08;
-    pipeline.imageProcessing.exposure = 0.96;
+    pipeline.imageProcessing.exposure = 1.02;
   }
 
   private readonly renderLoop = (): void => {
@@ -252,16 +260,16 @@ export class NeonPursuitGame {
     if (!this.camera || !this.car) return;
     const forward = this.car.getForward();
     const speedFactor = Math.min(telemetry.speedKph / 300, 1);
-    const cameraDistance = 8.6 + speedFactor * 3.1;
-    const cameraHeight = 3.35 + speedFactor * 0.72;
+    const cameraDistance = 7.3 + speedFactor * 2.6;
+    const cameraHeight = 2.8 + speedFactor * 0.58;
     const desired = this.car.root.position.subtract(forward.scale(cameraDistance));
     desired.y += cameraHeight;
     const smooth = 1 - Math.exp(-7.2 * dt);
     this.camera.position = Vector3.Lerp(this.camera.position, desired, smooth);
-    const target = this.car.root.position.add(forward.scale(5.4 + speedFactor * 5.5));
-    target.y += 0.62;
+    const target = this.car.root.position.add(forward.scale(5.2 + speedFactor * 5.1));
+    target.y += 0.72;
     this.camera.setTarget(target);
-    this.camera.fov += (0.88 + speedFactor * 0.14 - this.camera.fov) * Math.min(1, dt * 4.6);
+    this.camera.fov += (0.86 + speedFactor * 0.14 - this.camera.fov) * Math.min(1, dt * 4.6);
   }
 
   private updateHud(telemetry: VehicleTelemetry, pursuit: PursuitSnapshot): void {
