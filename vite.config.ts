@@ -16,7 +16,7 @@ export default defineConfig({
         display: 'fullscreen',
         orientation: 'landscape',
         background_color: '#050609',
-        theme_color: '#00e5ff',
+        theme_color: '#101317',
         categories: ['games', 'entertainment'],
         icons: [
           {
@@ -37,17 +37,17 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2,wasm,json}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2,wasm,json,glb}'],
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
         navigateFallback: '/index.html',
         runtimeCaching: [
           {
-            urlPattern: ({ request }) => request.destination === 'image',
+            urlPattern: ({ request, url }) => request.destination === 'image' || url.pathname.endsWith('.glb'),
             handler: 'CacheFirst',
             options: {
-              cacheName: 'neon-pursuit-images',
+              cacheName: 'neon-pursuit-art-assets-v2',
               expiration: {
-                maxEntries: 120,
+                maxEntries: 180,
                 maxAgeSeconds: 60 * 60 * 24 * 30
               }
             }
