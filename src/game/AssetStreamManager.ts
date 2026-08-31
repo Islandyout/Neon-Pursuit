@@ -4,15 +4,74 @@ export interface DistrictAssetManifest {
   optional: string[];
 }
 
+const CAR = '/assets/kenney/car-kit';
+const ROAD = '/assets/kenney/city-kit-roads';
+const CITY = '/assets/kenney/city-kit-commercial';
+
 export const DISTRICT_ASSETS: DistrictAssetManifest[] = [
-  { id: 'shibuya-core', required: [], optional: [] },
-  { id: 'bay-industrial', required: [], optional: [] },
-  { id: 'elevated-loop', required: [], optional: [] },
-  { id: 'old-town', required: [], optional: [] }
+  {
+    id: 'shibuya-core',
+    required: [
+      `${CAR}/race.glb`,
+      `${CAR}/sedan-sports.glb`,
+      `${CAR}/hatchback-sports.glb`,
+      `${CAR}/sedan.glb`,
+      `${CAR}/van.glb`,
+      `${ROAD}/road-straight.glb`,
+      `${ROAD}/road-crossroad-path.glb`,
+      `${CITY}/building-a.glb`,
+      `${CITY}/building-c.glb`,
+      `${CITY}/building-f.glb`,
+      `${CITY}/building-skyscraper-a.glb`,
+      `${CITY}/building-skyscraper-c.glb`
+    ],
+    optional: [
+      `${CAR}/Textures/colormap.png`,
+      `${ROAD}/Textures/colormap.png`,
+      `${ROAD}/Textures/variation-a.png`,
+      `${CITY}/Textures/colormap.png`,
+      `${CITY}/Textures/variation-a.png`,
+      `${CITY}/Textures/variation-b.png`
+    ]
+  },
+  {
+    id: 'bay-industrial',
+    required: [
+      `${CAR}/truck.glb`,
+      `${CAR}/van.glb`,
+      `${ROAD}/road-straight.glb`,
+      `${CITY}/building-f.glb`,
+      `${CITY}/building-l.glb`
+    ],
+    optional: []
+  },
+  {
+    id: 'elevated-loop',
+    required: [
+      `${CAR}/police.glb`,
+      `${CAR}/suv-luxury.glb`,
+      `${ROAD}/road-straight.glb`,
+      `${ROAD}/road-crossroad-path.glb`,
+      `${CITY}/building-skyscraper-a.glb`,
+      `${CITY}/building-skyscraper-c.glb`
+    ],
+    optional: []
+  },
+  {
+    id: 'old-town',
+    required: [
+      `${CAR}/hatchback-sports.glb`,
+      `${CAR}/sedan.glb`,
+      `${ROAD}/road-straight.glb`,
+      `${CITY}/building-a.glb`,
+      `${CITY}/building-c.glb`
+    ],
+    optional: []
+  }
 ];
 
 export class AssetStreamManager {
-  private readonly cacheName = 'neon-pursuit-runtime-v1';
+  private readonly cacheName = 'neon-pursuit-runtime-v2';
   private loadedDistricts = new Set<string>();
 
   async stageDistrict(id: string): Promise<void> {
@@ -34,7 +93,7 @@ export class AssetStreamManager {
         const match = await cache.match(url);
         if (!match) await cache.add(url);
       } catch {
-        // Optional assets never block district play.
+        // Optional texture/material variants never block district play.
       }
     }));
   }
