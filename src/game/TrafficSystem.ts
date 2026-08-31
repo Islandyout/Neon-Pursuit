@@ -19,7 +19,7 @@ export class TrafficSystem {
   private readonly agents: TrafficAgent[] = [];
 
   constructor(private readonly models: ModelLibrary, qualityTier: QualityTier) {
-    const budget = qualityTier === 'desktop' ? 22 : qualityTier === 'mobile-high' ? 14 : 8;
+    const budget = qualityTier === 'desktop' ? 34 : qualityTier === 'mobile-high' ? 20 : 12;
     const roads = ROAD_GRAPH.edges.filter((road) => !road.shortcut && road.trafficDensity !== 0 && road.roadClass !== 'parking');
     for (let index = 0; index < budget; index += 1) {
       const road = roads[index % roads.length];
@@ -57,7 +57,7 @@ export class TrafficSystem {
         agent.road.roadClass === 'expressway' ? 4.45 : 0.06,
         sample.position.z + rightZ * (agent.laneOffset + avoid)
       );
-      agent.mesh.rotation.y = sample.yaw + Math.PI;
+      agent.mesh.rotation.y = sample.yaw;
       agent.mesh.setEnabled(playerDistance < 700);
     }
   }
@@ -81,7 +81,7 @@ export class TrafficSystem {
       road.roadClass === 'expressway' ? 4.45 : 0.06,
       sample.position.z + rightZ * laneOffset
     );
-    mesh.rotation.y = sample.yaw + Math.PI;
+    mesh.rotation.y = sample.yaw;
     return { mesh, road, distance, speed: 8 + (seed % 9), seed, laneOffset };
   }
 }
