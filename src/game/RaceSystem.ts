@@ -27,7 +27,7 @@ export class RaceSystem {
   private readonly route: RoadEdge[];
   private readonly state: RivalState = { routeIndex: 0, distance: 0, speed: 0, completedEdges: 0 };
 
-  constructor(private readonly scene: Scene, routeDefinition: RaceRoute = NIGHT_LOOP) {
+  constructor(scene: Scene, routeDefinition: RaceRoute = NIGHT_LOOP) {
     this.route = routeDefinition.edgeIds.map(getRoadEdge);
     this.rival = MeshBuilder.CreateBox('rival-car', { width: 1.96, height: 1.08, depth: 4.45 }, scene);
     const material = new StandardMaterial('rival-material', scene);
