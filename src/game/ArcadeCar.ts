@@ -1,11 +1,11 @@
 import { Color3, Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
-import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
-import type { Mesh } from '@babylonjs/core/Meshes/mesh';
-import type { Scene } from '@babylonjs/core/scene';
+import { PBRMaterial } from '@babylonjs/core/Materials/PBR/pbrMaterial';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
+import type { Scene } from '@babylonjs/core/scene';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { CustomizationState, VehicleDefinition, VehicleInput, VehicleTelemetry } from './contracts';
 import { getVehicleDefinition } from './VehicleCatalog';
+import { ModelLibrary, playerModelForVehicle } from './ModelLibrary';
 
 const DEFAULT_CUSTOMIZATION: CustomizationState = {
   paint: '#2c94a7',
@@ -26,15 +26,19 @@ export class ArcadeCar {
   private nitrous = 1;
   private heat = 0;
   private driftScore = 0;
+  private visualRoot: TransformNode | null = null;
   private readonly wheelNodes: TransformNode[] = [];
-  private readonly visualMeshes: Mesh[] = [];
-  private bodyMaterial: StandardMaterial | null = null;
 
-  constructor(private readonly scene: Scene, vehicleId = 'kaze-s1', customization: Partial<CustomizationState> = {}) {
+  constructor(
+    private readonly scene: Scene,
+    private readonly models: ModelLibrary,
+    vehicleId = 'kaze-s1',
+    customization: Partial<CustomizationState> = {}
+  ) {
     this.definition = getVehicleDefinition(vehicleId);
     this.customization = { ...DEFAULT_CUSTOMIZATION, paint: this.definition.color, ...customization };
     this.root = new TransformNode('player-car', scene);
-    this.root.position.set(0, 0.72, 0);
+    this.root.position.set(0, 0.08, 0);
     this.root.rotationQuaternion = Quaternion.Identity();
     this.buildVisual();
   }
@@ -84,7 +88,7 @@ export class ArcadeCar {
     const right = new Vector3(forward.z, 0, -forward.x);
     this.root.position.addInPlace(forward.scale(this.forwardSpeed * safeDt));
     this.root.position.addInPlace(right.scale(this.lateralSpeed * safeDt));
-    this.root.position.y = 0.72 - this.customization.rideHeight;
+    this.root.position.y = 0.08 - this.customization.rideHeight;
     this.root.rotationQuaternion = Quaternion.FromEulerAngles(0, this.yaw, -this.steering * 0.025 - this.lateralSpeed * 0.0025);
 
     const wheelSpin = (this.forwardSpeed / 0.42) * safeDt;
@@ -101,8 +105,7 @@ export class ArcadeCar {
       this.heat = Math.max(0, this.heat - 0.022 * safeDt);
     }
 
-    const riskySpeed = speedRatio > 0.82;
-    if (riskySpeed) this.heat = Math.min(5, this.heat + 0.035 * safeDt);
+    if (speedRatio > 0.82) this.heat = Math.min(5, this.heat + 0.035 * safeDt);
 
     const maxForward = nitroActive ? maxSpeed * 1.12 : maxSpeed;
     this.forwardSpeed = Math.max(-18, Math.min(maxForward, this.forwardSpeed));
@@ -137,8 +140,8 @@ export class ArcadeCar {
 
   applyCustomization(next: Partial<CustomizationState>): void {
     this.customization = { ...this.customization, ...next };
-    if (this.bodyMaterial) this.bodyMaterial.diffuseColor = Color3.FromHexString(this.customization.paint);
-    this.root.position.y = 0.72 - this.customization.rideHeight;
+    this.root.position.y = 0.08 - this.customization.rideHeight;
+    this.applyPaint();
   }
 
   private computeGear(): number {
@@ -153,62 +156,38 @@ export class ArcadeCar {
   }
 
   private rebuildVisual(): void {
-    for (const mesh of this.visualMeshes) mesh.dispose();
-    for (const node of this.wheelNodes) node.dispose();
-    this.visualMeshes.length = 0;
+    this.visualRoot?.dispose(false);
+    this.visualRoot = null;
     this.wheelNodes.length = 0;
     this.buildVisual();
   }
 
   private buildVisual(): void {
-    const bodyMaterial = new StandardMaterial('car-body-material', this.scene);
-    bodyMaterial.diffuseColor = Color3.FromHexString(this.customization.paint);
-    bodyMaterial.specularColor = new Color3(0.72, 0.78, 0.8);
-    this.bodyMaterial = bodyMaterial;
+    const visual = this.models.instantiate(playerModelForVehicle(this.definition.id), `player-${this.definition.id}`, true);
+    visual.parent = this.root;
+    visual.scaling.setAll(this.definition.vehicleClass === 'exotic' ? 1.72 : 1.68);
+    visual.rotation.y = Math.PI;
+    visual.position.y = 0;
+    this.visualRoot = visual;
 
-    const darkMaterial = new StandardMaterial('car-dark-material', this.scene);
-    darkMaterial.diffuseColor = Color3.FromHexString('#090b0e');
-    darkMaterial.specularColor = new Color3(0.34, 0.38, 0.4);
-    const lightMaterial = new StandardMaterial('car-light-material', this.scene);
-    lightMaterial.diffuseColor = Color3.FromHexString('#e9f3ef');
-    lightMaterial.emissiveColor = Color3.FromHexString('#657b76');
-
-    const isSedan = this.definition.vehicleClass === 'sports-sedan' || this.definition.vehicleClass === 'police-interceptor';
-    const isExotic = this.definition.vehicleClass === 'exotic';
-    const length = isSedan ? 4.75 : isExotic ? 4.55 : 4.35;
-    const width = isExotic ? 2.08 : 1.95;
-    const bodyHeight = isExotic ? 0.38 : 0.48;
-    const bodyScale = this.customization.bodyKit === 'widebody' ? 1.08 : this.customization.bodyKit === 'street' ? 1.03 : 1;
-
-    const body = MeshBuilder.CreateBox('car-body', { width: width * bodyScale, height: bodyHeight, depth: length }, this.scene);
-    body.parent = this.root; body.position.y = 0.34; body.material = bodyMaterial; this.visualMeshes.push(body);
-    const cabin = MeshBuilder.CreateBox('car-cabin', { width: width * 0.78, height: isExotic ? 0.45 : 0.6, depth: isSedan ? 2.2 : 1.85 }, this.scene);
-    cabin.parent = this.root; cabin.position.set(0, 0.78, -0.2); cabin.scaling.x = 0.94; cabin.material = darkMaterial; this.visualMeshes.push(cabin);
-    const splitter = MeshBuilder.CreateBox('front-splitter', { width: width * 1.04 * bodyScale, height: 0.1, depth: 0.38 }, this.scene);
-    splitter.parent = this.root; splitter.position.set(0, 0.04, length * 0.5); splitter.material = darkMaterial; this.visualMeshes.push(splitter);
-
-    if (this.customization.spoiler !== 'none') {
-      const spoilerWidth = this.customization.spoiler === 'track' ? width * 1.05 : width * 0.9;
-      const spoiler = MeshBuilder.CreateBox('spoiler', { width: spoilerWidth, height: 0.09, depth: this.customization.spoiler === 'lip' ? 0.22 : 0.34 }, this.scene);
-      spoiler.parent = this.root; spoiler.position.set(0, this.customization.spoiler === 'track' ? 1.12 : 0.95, -length * 0.46); spoiler.material = darkMaterial; this.visualMeshes.push(spoiler);
+    for (const node of visual.getChildTransformNodes(false)) {
+      if (node.name.toLowerCase().includes('wheel')) this.wheelNodes.push(node);
     }
+    this.applyPaint();
+  }
 
-    for (const x of [-width * 0.32, width * 0.32]) {
-      const headlight = MeshBuilder.CreateBox(`headlight-${x}`, { width: 0.42, height: 0.1, depth: 0.07 }, this.scene);
-      headlight.parent = this.root; headlight.position.set(x, 0.42, length * 0.505); headlight.material = lightMaterial; this.visualMeshes.push(headlight);
+  private applyPaint(): void {
+    if (!this.visualRoot) return;
+    const paint = Color3.FromHexString(this.customization.paint);
+    for (const mesh of this.visualRoot.getChildMeshes(false)) {
+      const material = mesh.material;
+      if (material instanceof PBRMaterial) {
+        material.albedoColor = Color3.Lerp(Color3.White(), paint, 0.28);
+        material.metallic = Math.max(material.metallic ?? 0, 0.08);
+        material.roughness = Math.min(material.roughness ?? 0.6, 0.62);
+      } else if (material instanceof StandardMaterial) {
+        material.diffuseColor = Color3.Lerp(Color3.White(), paint, 0.28);
+      }
     }
-
-    const axleZ = length * 0.32;
-    const wheelX = width * 0.52 * bodyScale;
-    const wheelPositions: Array<[number, number]> = [[-wheelX, axleZ], [wheelX, axleZ], [-wheelX, -axleZ], [wheelX, -axleZ]];
-    for (const [x, z] of wheelPositions) {
-      const wheelNode = new TransformNode(`wheel-node-${x}-${z}`, this.scene);
-      wheelNode.parent = this.root; wheelNode.position.set(x, 0.12, z);
-      const wheelWidth = this.customization.wheelStyle === 'deep-dish' ? 0.38 : 0.31;
-      const wheel = MeshBuilder.CreateCylinder(`wheel-${x}-${z}`, { diameter: 0.78, height: wheelWidth, tessellation: 20 }, this.scene);
-      wheel.parent = wheelNode; wheel.rotation.z = Math.PI / 2; wheel.material = darkMaterial; this.visualMeshes.push(wheel);
-      this.wheelNodes.push(wheelNode);
-    }
-    this.root.computeWorldMatrix(true);
   }
 }
