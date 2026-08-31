@@ -30,7 +30,7 @@ export class ArcadeCar {
   private readonly wheelNodes: TransformNode[] = [];
 
   constructor(
-    private readonly scene: Scene,
+    scene: Scene,
     private readonly models: ModelLibrary,
     vehicleId = 'kaze-s1',
     customization: Partial<CustomizationState> = {}
