@@ -8,13 +8,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Neon Pursuit" />
+    <meta name="format-detection" content="telephone=no" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icon.svg" />
     <title>Neon Pursuit</title>
   </head>
   <body>
     <div id="app">
-      <canvas id="game-canvas" aria-label="Neon Pursuit game viewport"></canvas>
+      <canvas id="game-canvas" tabindex="0" aria-label="Neon Pursuit game viewport"></canvas>
       <div id="topbar" class="glass">
         <div class="brand">
           <span class="brand-mark">NP</span>
@@ -31,21 +32,27 @@
         <div class="nitrous glass"><span>NITROUS</span><div class="nitro-track"><div id="nitro-fill"></div></div></div>
       </div>
       <div id="start-card" class="start-card glass">
-        <p class="eyebrow">VERTICAL SLICE 0.1</p>
+        <p class="eyebrow">VERTICAL SLICE 0.2</p>
         <h1>OWN THE NIGHT.</h1>
-        <p>WASD / arrows to drive. Space to handbrake. Shift for nitrous. Gamepads and touch controls are supported.</p>
+        <p>Keyboard, controller and mobile touch are supported. On phones, landscape mode is recommended for the full driving HUD.</p>
         <button id="drive-button" type="button">DRIVE</button>
       </div>
       <div id="touch-controls" aria-hidden="true">
         <div class="touch-steer">
           <button data-control="left" aria-label="Steer left">◀</button>
           <button data-control="right" aria-label="Steer right">▶</button>
+          <button data-control="handbrake" class="handbrake" aria-label="Handbrake">DRIFT</button>
         </div>
         <div class="touch-pedals">
           <button data-control="brake" class="brake" aria-label="Brake">BRAKE</button>
           <button data-control="nitro" class="nitro" aria-label="Nitrous">N₂O</button>
           <button data-control="throttle" class="throttle" aria-label="Accelerate">GO</button>
         </div>
+      </div>
+      <div id="rotate-device" class="rotate-device glass" role="status" aria-live="polite">
+        <div class="phone-icon" aria-hidden="true">↻</div>
+        <strong>ROTATE TO LANDSCAPE</strong>
+        <span>Neon Pursuit is optimized for wide-screen mobile play.</span>
       </div>
       <div id="offline-badge" class="offline-badge hidden">OFFLINE MODE</div>
     </div>
