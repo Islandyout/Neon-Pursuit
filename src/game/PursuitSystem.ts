@@ -5,6 +5,7 @@ import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import type { Scene } from '@babylonjs/core/scene';
 import type { PursuitState, QualityTier, VehicleTelemetry } from './contracts';
 import { ROAD_GRAPH, findClosestRoad } from './RoadNetwork';
+import { createVehicleVisual } from './VehicleVisualFactory';
 
 interface PoliceUnit {
   mesh: Mesh;
@@ -21,6 +22,7 @@ export interface PursuitSnapshot {
 export class PursuitSystem {
   private state: PursuitState = 'patrol';
   private readonly units: PoliceUnit[] = [];
+  private readonly roadblock: Mesh[] = [];
   private stateClock = 0;
   private lastActiveHeat = 0;
   private readonly maxUnits: number;
@@ -37,14 +39,16 @@ export class PursuitSystem {
     if (nextState !== this.state) {
       this.state = nextState;
       this.stateClock = 0;
+      if (this.state !== 'intercept') this.clearRoadblock();
     }
 
     const targetCount = this.targetUnitCount();
-    while (this.units.length < targetCount) this.units.push(this.spawnUnit(playerPosition, this.units.length));
-    while (this.units.length > targetCount) this.units.pop()?.mesh.dispose();
+    while (this.units.length < targetCount) this.units.push(this.spawnUnit(playerPosition, this.units.length, telemetry.heat));
+    while (this.units.length > targetCount) this.units.pop()?.mesh.dispose(false, true);
 
     const targetRoad = findClosestRoad({ x: playerPosition.x, z: playerPosition.z });
     for (const unit of this.units) this.updateUnit(unit, playerPosition, targetRoad.points, safeDt, telemetry.heat);
+    if (this.state === 'intercept' && this.roadblock.length === 0) this.spawnRoadblock(playerPosition);
 
     return {
       state: this.state,
@@ -58,8 +62,9 @@ export class PursuitSystem {
   }
 
   dispose(): void {
-    for (const unit of this.units) unit.mesh.dispose();
+    for (const unit of this.units) unit.mesh.dispose(false, true);
     this.units.length = 0;
+    this.clearRoadblock();
   }
 
   private chooseState(telemetry: VehicleTelemetry): PursuitState {
@@ -93,7 +98,7 @@ export class PursuitSystem {
     return Math.min(this.maxUnits, desired);
   }
 
-  private spawnUnit(playerPosition: Vector3, seed: number): PoliceUnit {
+  private spawnUnit(playerPosition: Vector3, seed: number, heat: number): PoliceUnit {
     const spawnNodes = ROAD_GRAPH.nodes.filter((node) => node.tags?.includes('spawn') || node.tags?.includes('roadblock'));
     const sorted = [...spawnNodes].sort((a, b) => {
       const da = Math.hypot(a.position.x - playerPosition.x, a.position.z - playerPosition.z);
@@ -101,21 +106,54 @@ export class PursuitSystem {
       return db - da;
     });
     const spawn = sorted[seed % Math.max(1, sorted.length)]?.position ?? { x: playerPosition.x - 160, z: playerPosition.z - 80 };
-    const mesh = MeshBuilder.CreateBox(`police-${seed}`, { width: 2.05, height: 1.12, depth: 4.65 }, this.scene);
-    const material = new StandardMaterial(`police-material-${seed}`, this.scene);
-    material.diffuseColor = Color3.FromHexString('#1e2328');
-    material.specularColor = Color3.FromHexString('#4c555c');
-    mesh.material = material;
-    mesh.position.set(spawn.x, 0.66, spawn.z);
+    const heavy = heat >= 3.6 && seed % 2 === 1;
+    const mesh = createVehicleVisual(this.scene, {
+      name: `police-${seed}`,
+      vehicleClass: heavy ? 'police-suv' : 'police-interceptor',
+      paint: heavy ? '#202428' : '#1b2025',
+      policeLights: true
+    });
+    mesh.position.set(spawn.x, 0.05, spawn.z);
+    return { mesh, speed: heavy ? 16 : 19, seed };
+  }
 
-    const bar = MeshBuilder.CreateBox(`police-bar-${seed}`, { width: 1.1, height: 0.12, depth: 0.2 }, this.scene);
-    bar.parent = mesh;
-    bar.position.y = 0.68;
-    const barMaterial = new StandardMaterial(`police-bar-material-${seed}`, this.scene);
-    barMaterial.diffuseColor = Color3.FromHexString(seed % 2 === 0 ? '#58738a' : '#86515c');
-    barMaterial.emissiveColor = Color3.FromHexString(seed % 2 === 0 ? '#153247' : '#41131c');
-    bar.material = barMaterial;
-    return { mesh, speed: 18, seed };
+  private spawnRoadblock(playerPosition: Vector3): void {
+    const candidates = ROAD_GRAPH.nodes.filter((node) => node.tags?.includes('roadblock') || node.tags?.includes('intersection'));
+    const target = [...candidates].sort((a, b) => {
+      const da = Math.hypot(a.position.x - playerPosition.x, a.position.z - playerPosition.z);
+      const db = Math.hypot(b.position.x - playerPosition.x, b.position.z - playerPosition.z);
+      const aPenalty = da < 100 ? 500 : 0;
+      const bPenalty = db < 100 ? 500 : 0;
+      return da + aPenalty - (db + bPenalty);
+    })[0];
+    if (!target) return;
+
+    const barrierMaterial = new StandardMaterial('roadblock-barrier-material', this.scene);
+    barrierMaterial.diffuseColor = Color3.FromHexString('#a7a7a0');
+    barrierMaterial.emissiveColor = Color3.FromHexString('#3e2e20');
+    for (const offset of [-5.5, 0, 5.5]) {
+      const barrier = MeshBuilder.CreateBox(`roadblock-barrier-${offset}`, { width: 4.7, height: 0.75, depth: 0.7 }, this.scene);
+      barrier.position.set(target.position.x + offset, 0.45, target.position.z);
+      barrier.material = barrierMaterial;
+      this.roadblock.push(barrier);
+    }
+
+    for (const offset of [-9, 9]) {
+      const unit = createVehicleVisual(this.scene, {
+        name: `roadblock-unit-${offset}`,
+        vehicleClass: 'police-suv',
+        paint: '#1b2025',
+        policeLights: true
+      });
+      unit.position.set(target.position.x + offset, 0.05, target.position.z + 3.3);
+      unit.rotation.y = Math.PI / 2;
+      this.roadblock.push(unit);
+    }
+  }
+
+  private clearRoadblock(): void {
+    for (const mesh of this.roadblock) mesh.dispose(false, true);
+    this.roadblock.length = 0;
   }
 
   private updateUnit(unit: PoliceUnit, playerPosition: Vector3, roadPoints: Array<{ x: number; z: number }>, dt: number, heat: number): void {
@@ -125,7 +163,7 @@ export class PursuitSystem {
       return currentDistance < bestDistance ? point : best;
     }, roadPoints[0]);
     const playerDistance = Vector3.Distance(unit.mesh.position, playerPosition);
-    const target = playerDistance < 75 ? playerPosition : new Vector3(nearestWaypoint.x, 0.66, nearestWaypoint.z);
+    const target = playerDistance < 75 ? playerPosition : new Vector3(nearestWaypoint.x, 0.05, nearestWaypoint.z);
     const delta = target.subtract(unit.mesh.position);
     delta.y = 0;
     const distance = Math.max(0.001, delta.length());
@@ -133,7 +171,7 @@ export class PursuitSystem {
     const desiredSpeed = 24 + heat * 5.2 + (this.state === 'intercept' ? 8 : 0);
     unit.speed += (desiredSpeed - unit.speed) * Math.min(1, dt * 1.7);
     unit.mesh.position.addInPlace(direction.scale(Math.min(distance, unit.speed * dt)));
-    unit.mesh.position.y = 0.66;
+    unit.mesh.position.y = 0.05;
     unit.mesh.rotation.y = Math.atan2(direction.x, direction.z);
   }
 }
