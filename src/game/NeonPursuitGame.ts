@@ -18,6 +18,8 @@ import { RaceSystem } from './RaceSystem';
 import { AudioDirector } from './AudioDirector';
 import { PerformanceManager } from './PerformanceManager';
 import { PLAYER_VEHICLE_IDS, getVehicleDefinition } from './VehicleCatalog';
+import { GarageSystem, CUSTOMIZATION_PRESETS } from './GarageSystem';
+import { AssetStreamManager } from './AssetStreamManager';
 
 export interface GameHudBindings {
   renderer: HTMLElement;
@@ -40,9 +42,12 @@ export class NeonPursuitGame {
   private pursuit: PursuitSystem | null = null;
   private race: RaceSystem | null = null;
   private readonly audio = new AudioDirector();
+  private readonly garage = new GarageSystem();
+  private readonly assetStream = new AssetStreamManager();
   private lastTime = performance.now();
   private running = false;
   private vehicleIndex = 0;
+  private customizationIndex = 0;
   private readonly qualityTier = this.detectQualityTier();
   private readonly performanceManager = new PerformanceManager(this.qualityTier);
 
@@ -53,7 +58,19 @@ export class NeonPursuitGame {
     this.configureResolution(this.engine);
     this.scene = this.createScene(this.engine);
     this.input = new InputManager();
-    this.car = new ArcadeCar(this.scene, PLAYER_VEHICLE_IDS[this.vehicleIndex]);
+
+    const garageProfile = this.garage.getProfile();
+    const savedIndex = PLAYER_VEHICLE_IDS.findIndex((id) => id === garageProfile.activeVehicleId);
+    this.vehicleIndex = savedIndex >= 0 ? savedIndex : 0;
+    const activeVehicleId = PLAYER_VEHICLE_IDS[this.vehicleIndex];
+    const savedCustomization = garageProfile.customization[activeVehicleId];
+    this.car = new ArcadeCar(this.scene, activeVehicleId, savedCustomization);
+
+    await this.assetStream.stageDistrict('shibuya-core');
+    void this.assetStream.stageDistrict('bay-industrial');
+    void this.assetStream.stageDistrict('elevated-loop');
+    void this.assetStream.stageDistrict('old-town');
+
     this.camera = this.createCamera(this.scene);
     buildWorld(this.scene, this.qualityTier);
     this.buildRendering(this.scene, this.camera);
@@ -92,12 +109,30 @@ export class NeonPursuitGame {
     return this.input?.getControlMode() ?? null;
   }
 
+  getVehicleName(): string | null {
+    return this.car?.getVehicleDefinition().name ?? null;
+  }
+
   cycleVehicle(): string | null {
     if (!this.car) return null;
     this.vehicleIndex = (this.vehicleIndex + 1) % PLAYER_VEHICLE_IDS.length;
     const id = PLAYER_VEHICLE_IDS[this.vehicleIndex];
+    const profile = this.garage.getProfile();
+    const customization = profile.customization[id];
     this.car.setVehicle(id);
+    if (customization) this.car.applyCustomization(customization);
+    this.garage.setActiveVehicle(id);
+    this.customizationIndex = 0;
     return getVehicleDefinition(id).name;
+  }
+
+  cycleCustomization(): string | null {
+    if (!this.car) return null;
+    this.customizationIndex = (this.customizationIndex + 1) % CUSTOMIZATION_PRESETS.length;
+    const preset = CUSTOMIZATION_PRESETS[this.customizationIndex];
+    this.car.applyCustomization(preset);
+    this.garage.setCustomization(this.car.getVehicleDefinition().id, preset);
+    return `STYLE ${this.customizationIndex + 1}`;
   }
 
   dispose(): void {
@@ -106,6 +141,7 @@ export class NeonPursuitGame {
     this.pursuit?.dispose();
     this.race?.dispose();
     this.audio.dispose();
+    this.assetStream.clearSessionState();
     window.removeEventListener('resize', this.resize);
     window.visualViewport?.removeEventListener('resize', this.resize);
     this.engine?.dispose();
