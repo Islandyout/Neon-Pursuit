@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "smoke": "node scripts/smoke-check.mjs",
+    "system-check": "tsx scripts/system-check.ts",
+    "verify": "npm run smoke && npm run system-check && npm run build",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc --noEmit"
@@ -14,6 +16,7 @@
     "@babylonjs/core": "9.23.0"
   },
   "devDependencies": {
+    "tsx": "^4.20.0",
     "typescript": "7.0.2",
     "vite": "8.2.2",
     "vite-plugin-pwa": "1.3.0"
