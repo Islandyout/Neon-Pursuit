@@ -1,5 +1,6 @@
 import { Vector3 } from '@babylonjs/core/Maths/math';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
+import type { Scene } from '@babylonjs/core/scene';
 import type { PursuitState, QualityTier, VehicleTelemetry } from './contracts';
 import { ROAD_GRAPH, findClosestRoad } from './RoadNetwork';
 import { ModelLibrary } from './ModelLibrary';
@@ -24,7 +25,7 @@ export class PursuitSystem {
   private lastActiveHeat = 0;
   private readonly maxUnits: number;
 
-  constructor(private readonly models: ModelLibrary, qualityTier: QualityTier) {
+  constructor(_scene: Scene, private readonly models: ModelLibrary, qualityTier: QualityTier) {
     this.maxUnits = qualityTier === 'desktop' ? 5 : qualityTier === 'mobile-high' ? 3 : 2;
   }
 
