@@ -8,7 +8,7 @@ import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
 import { GlowLayer } from '@babylonjs/core/Layers/glowLayer';
 import { DefaultRenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline';
-import { InputManager } from './InputManager';
+import { InputManager, type ControlSettings } from './InputManager';
 import { ArcadeCar } from './ArcadeCar';
 import type { ControlMode, QualityTier, VehicleTelemetry } from './contracts';
 import { buildWorld } from './WorldBuilder';
@@ -107,6 +107,14 @@ export class NeonPursuitGame {
 
   getControlMode(): ControlMode | null {
     return this.input?.getControlMode() ?? null;
+  }
+
+  getControlSettings(): ControlSettings | null {
+    return this.input?.getSettings() ?? null;
+  }
+
+  updateControlSettings(next: Partial<ControlSettings>): ControlSettings | null {
+    return this.input?.updateSettings(next) ?? null;
   }
 
   getVehicleName(): string | null {
