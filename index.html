@@ -27,6 +27,7 @@
           <button id="vehicle-button" class="top-button" type="button">CAR <span id="vehicle-label">KAZE S1</span></button>
           <button id="style-button" class="top-button" type="button">STYLE <span id="style-label">1</span></button>
           <button id="control-mode-button" class="top-button" type="button">STEER <span id="control-mode-label">ANALOG</span></button>
+          <button id="tune-button" class="top-button" type="button">TUNE</button>
           <button id="install-button" class="top-button hidden" type="button">INSTALL</button>
         </div>
       </div>
@@ -49,6 +50,16 @@
           <span>NITROUS</span>
           <div class="nitro-track"><div id="nitro-fill"></div></div>
         </div>
+      </div>
+
+      <div id="control-settings" class="settings-panel hidden" role="dialog" aria-label="Driving control settings">
+        <div class="settings-head"><strong>DRIVING CONTROLS</strong><button id="close-settings" type="button">×</button></div>
+        <label>STEERING SENSITIVITY <output id="steer-sensitivity-value">1.00</output><input id="steer-sensitivity" type="range" min="0.55" max="1.55" step="0.05" value="1" /></label>
+        <label>GYRO SENSITIVITY <output id="gyro-sensitivity-value">1.00</output><input id="gyro-sensitivity" type="range" min="0.5" max="1.8" step="0.05" value="1" /></label>
+        <label>CONTROL OPACITY <output id="control-opacity-value">78%</output><input id="control-opacity" type="range" min="0.35" max="1" step="0.05" value="0.78" /></label>
+        <label class="setting-toggle"><span>STEERING ASSIST</span><input id="steering-assist" type="checkbox" checked /></label>
+        <label class="setting-toggle"><span>LEFT-HANDED LAYOUT</span><input id="left-handed" type="checkbox" /></label>
+        <label class="setting-toggle"><span>VIBRATION</span><input id="vibration" type="checkbox" checked /></label>
       </div>
 
       <div id="start-card" class="start-card">
